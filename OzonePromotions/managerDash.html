@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manager Dashboard — Ozone Promotions</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand"><div class="brand">⬡ OZONE</div><div class="sub">Manager Portal</div></div>
+  <div class="user-badge">
+    <div class="user-avatar avatar-manager" id="sb-av">NK</div>
+    <div class="user-info"><div class="name" id="sb-name">Nomsa Khumalo</div><span class="role-badge rb-manager">Manager</span></div>
+  </div>
+  <div id="nav-menu"></div>
+  <div class="sidebar-bottom"><button class="btn-logout" onclick="doLogout()">⏻ Sign Out</button></div>
+</nav>
+
+<!-- MAIN -->
+<main class="main-content">
+  <div class="page" id="page-dashboard"></div>
+  <div class="page" id="page-bookings"></div>
+  <div class="page" id="page-attendance"></div>
+  <div class="page" id="page-stock"></div>
+  <div class="page" id="page-reports"></div>
+  <div class="page" id="page-photos"></div>
+  <div class="page" id="page-storeqr"></div>
+  <div class="page" id="page-invoices"></div>
+  <div class="page" id="page-promoters"></div>
+  <div class="page" id="page-applications"></div>
+  <div class="page" id="page-products"></div>
+  <div class="page" id="page-bi"></div>
+  <div class="page" id="page-settings"></div>
+</main>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-add-booking">
+  <div class="modal">
+    <h2>📅 Create New Booking</h2>
+    <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.18);border-radius:var(--r);padding:10px 13px;margin-bottom:1rem;font-size:.87rem">
+      Pay Rate: R<span id="booking-rate-display">65</span>/hr · 8-hour shift = <strong style="color:var(--oz-green)">R<span id="booking-total-display">520</span></strong>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Promoter</label><select id="bk-promoter"><option>Zanele Dlamini</option><option>Sipho Mokoena</option><option>Ayanda Nkosi</option><option>Thandeka Zulu</option></select></div>
+      <div class="form-group"><label>Store</label><select id="bk-store"><option>Clicks — Gateway</option><option>Checkers — La Lucia</option><option>Dis-Chem — Pavilion</option><option>Pick n Pay — Musgrave</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="bk-date"></div>
+      <div class="form-group"><label>Shift</label><select id="bk-shift"><option>08:00–16:00</option><option>09:00–17:00</option><option>10:00–18:00</option><option>12:00–20:00</option></select></div>
+    </div>
+    <div class="form-group"><label>Product / Campaign</label><select id="bk-product"><option>Aqua Body Mist 200ml</option><option>Rose Glow Serum 30ml</option></select></div>
+    <div class="form-group"><label>Notes for Promoter</label><textarea id="bk-notes" placeholder="Special instructions…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="OZ.closeModal('modal-add-booking')">Cancel</button>
+      <button class="btn btn-accent" onclick="createBooking()">Send Booking →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-invoice">
+  <div class="modal">
+    <h2>🧾 Create Invoice</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Client / Store</label><input type="text" placeholder="Clicks Gateway"></div>
+      <div class="form-group"><label>Invoice #</label><input type="text" placeholder="INV-2025-089"></div>
+    </div>
+    <div class="form-group"><label>Service Description</label><input type="text" placeholder="In-store promotion activation – 8 hours"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Amount (ZAR)</label><input type="number" placeholder="520.00"></div>
+      <div class="form-group"><label>Date</label><input type="date"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="OZ.closeModal('modal-invoice')">Cancel</button>
+      <button class="btn btn-accent" onclick="OZ.toast('🧾 Invoice generated!');OZ.closeModal('modal-invoice')">Generate →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-decline">
+  <div class="modal" style="max-width:420px">
+    <h2>❌ Decline Application</h2>
+    <div class="form-group"><label>Reason</label><select id="decline-reason"><option>No vacancies in requested region</option><option>Incomplete or insufficient application</option><option>Does not meet minimum requirements</option><option>Position filled by another candidate</option><option>Other</option></select></div>
+    <div class="form-group"><label>Additional Notes (optional)</label><textarea id="decline-notes" placeholder="Internal notes…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="OZ.closeModal('modal-decline')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDecline()">Confirm Decline</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-product">
+  <div class="modal">
+    <h2>🆕 Add Product / Campaign</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Product Name</label><input type="text" id="np-name" placeholder="e.g. Vitamin C Brightener"></div>
+      <div class="form-group"><label>SKU</label><input type="text" id="np-sku" placeholder="e.g. OZ-007"></div>
+    </div>
+    <div class="form-group"><label>Description / Talking Points</label><textarea id="np-desc" placeholder="Key benefits and what promoters should highlight to customers…"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>Category</label><select id="np-cat"><option>Body Care</option><option>Skincare</option><option>Hair Care</option><option>Fragrance</option><option>Gift Set / Bundle</option></select></div>
+      <div class="form-group"><label>Status</label><select id="np-status"><option value="active">Active — Available to book</option><option value="draft">Draft — Not yet active</option></select></div>
+    </div>
+    <div class="form-group"><label>Barcode (optional)</label><input type="text" id="np-barcode" placeholder="8901234567890"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="OZ.closeModal('modal-add-product')">Cancel</button>
+      <button class="btn btn-accent" onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chatbot -->
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()">
+  💬<span class="chat-badge" id="chat-badge" style="display:none">!</span>
+</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="ch-avatar">🤖</div>
+    <div><div class="ch-name">Ozone Assistant</div><div class="ch-status">● Online · Manager mode</div></div>
+    <button class="ch-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-quick-replies" id="chat-qr"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="javascript/supabase.js"></script>
+<script src="javascript/auth-session.js"></script>
+<script src="index.js"></script>
+<script>
+// ── SESSION CHECK ─────────────────────────────────────────────
+(async () => {
+  // TODO: Uncomment for live Supabase auth
+  // const user = await checkSession();
+  // if (!user) return;
+  // const stored = sessionStorage.getItem('oz_user');
+
+  // Demo: read from sessionStorage
+  const stored = sessionStorage.getItem('oz_user');
+  if (stored) {
+    const u = JSON.parse(stored);
+    document.getElementById('sb-name').textContent = u.name;
+    document.getElementById('sb-av').textContent   = u.initials || u.name.split(' ').map(w=>w[0]).join('');
+  }
+})();
+
+function doLogout() {
+  // await window.supabaseClient.auth.signOut(); // Supabase signout
+  sessionStorage.clear();
+  window.location.href = 'login.html';
+}
+
+// ── NAV ───────────────────────────────────────────────────────
+const NAV = [
+  { section:'Overview',      items:[{id:'dashboard',icon:'📊',label:'Dashboard'},{id:'bi',icon:'📈',label:'Business Intelligence'}] },
+  { section:'Operations',    items:[{id:'bookings',icon:'📅',label:'Bookings'},{id:'attendance',icon:'📍',label:'Attendance'},{id:'reports',icon:'📝',label:'Reports'},{id:'photos',icon:'📷',label:'Photos'},{id:'storeqr',icon:'📲',label:'Store QR Codes'}] },
+  { section:'Inventory & Finance', items:[{id:'stock',icon:'📦',label:'Stock'},{id:'invoices',icon:'🧾',label:'Invoices'}] },
+  { section:'Team',          items:[{id:'promoters',icon:'👥',label:'Promoters'},{id:'applications',icon:'📋',label:'Applications',dynamicBadge:true}] },
+  { section:'Catalogue',     items:[{id:'products',icon:'🧴',label:'Products'}] },
+  { section:'System',        items:[{id:'settings',icon:'⚙️',label:'Settings'}] },
+];
+
+function buildNav() {
+  let html = '';
+  NAV.forEach(sec => {
+    html += `<div class="nav-section">${sec.section}</div>`;
+    sec.items.forEach(item => {
+      let badge = '';
+      if (item.dynamicBadge) {
+        const c = window.APPLICATIONS.filter(a=>a.status==='pending').length;
+        if (c > 0) badge = `<span class="nbadge nbadge-red">${c}</span>`;
+      }
+      html += `<div class="nav-item" id="nav-${item.id}" onclick="showPage('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span>${badge}</div>`;
+    });
+  });
+  document.getElementById('nav-menu').innerHTML = html;
+}
+
+let biCharts = {};
+function showPage(id) {
+  Object.values(biCharts).forEach(c=>c&&c.destroy&&c.destroy()); biCharts={};
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  document.getElementById('nav-'+id)?.classList.add('active');
+  const r = {
+    dashboard:  renderDashboard,
+    bookings:   renderBookings,
+    attendance: renderAttendance,
+    stock:      renderStock,
+    reports:    renderReports,
+    photos:     renderPhotos,
+    storeqr:    renderStoreQR,
+    invoices:   renderInvoices,
+    promoters:  renderPromoters,
+    applications: renderApplications,
+    products:   renderProducts,
+    bi:         renderBI,
+    settings:   renderSettings,
+  };
+  r[id]?.();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+function renderDashboard() {
+  const p = window.APPLICATIONS.filter(a=>a.status==='pending').length;
+  const outstanding = window.INVOICES.filter(i=>i.status==='outstanding').reduce((s,i)=>s+i.amount,0);
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  document.getElementById('page-dashboard').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Welcome back, Nomsa 👋</h1><p>${new Date().toLocaleDateString('en-ZA',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Active Bookings</div><div class="stat-value">12</div><div class="stat-sub">3 this week</div><div class="stat-icon">📅</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Active Promoters</div><div class="stat-value">4</div><div class="stat-sub">1 inactive</div><div class="stat-icon">👥</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Low Stock Items</div><div class="stat-value">1</div><div class="stat-sub">Checkers La Lucia</div><div class="stat-icon">📦</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent2)"><div class="stat-label">Pending Applications</div><div class="stat-value" style="color:${p>0?'var(--oz-accent3)':'inherit'}">${p}</div><div class="stat-sub"><a onclick="showPage('applications')" style="color:var(--oz-accent);cursor:pointer;font-size:.72rem">Review now →</a></div><div class="stat-icon">📋</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Revenue This Month</div><div class="stat-value" style="font-size:1.45rem">${sym}17k</div><div class="stat-sub">${sym}${outstanding.toLocaleString()} outstanding</div><div class="stat-icon">💰</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Pay Rate</div><div class="stat-value" style="font-size:1.45rem">${sym}${S.hourlyRate}</div><div class="stat-sub">per hour · ${sym}${S.hourlyRate*S.shiftHours} per shift</div><div class="stat-icon">⚙️</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Recent Activity</div>
+      <div class="timeline">
+        <div class="timeline-item"><div class="timeline-time">Today 09:02</div><div style="font-size:.84rem">Zanele Dlamini checked in at Clicks Gateway</div></div>
+        <div class="timeline-item"><div class="timeline-time">Today 08:45</div><div style="font-size:.84rem">Booking B005 sent to Zanele Dlamini</div></div>
+        <div class="timeline-item"><div class="timeline-time">Yesterday 17:05</div><div style="font-size:.84rem">Sipho Mokoena submitted feedback report</div></div>
+        <div class="timeline-item"><div class="timeline-time">Yesterday 16:00</div><div style="font-size:.84rem">INV-2025-082 marked paid — ${sym}3,500</div></div>
+        <div class="timeline-item"><div class="timeline-time">2 days ago</div><div style="font-size:.84rem">New application from Lerato Mokoena</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Needs Attention</div>
+      <div class="notif-item pending"><div class="notif-dot" style="background:var(--oz-accent3)"></div><div><b>Booking Response Overdue</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Sipho Mokoena hasn't responded to B002</span></div></div>
+      <div class="notif-item alert"><div class="notif-dot" style="background:var(--oz-red)"></div><div><b>Critical Stock</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Aqua Mist at 10% at Checkers La Lucia</span></div></div>
+      <div class="notif-item pending"><div class="notif-dot" style="background:var(--oz-accent2)"></div><div><b>${p} Pending Application${p!==1?'s':''}</b><br><span style="font-size:.78rem;color:var(--oz-muted)"><a onclick="showPage('applications')" style="color:var(--oz-accent);cursor:pointer">Review now →</a></span></div></div>
+      <div class="notif-item alert"><div class="notif-dot" style="background:var(--oz-red)"></div><div><b>Invoice Overdue</b><br><span style="font-size:.78rem;color:var(--oz-muted)">INV-2025-085 — ${sym}3,500 — Clicks Gateway</span></div></div>
+    </div>
+  </div>`;
+}
+
+// ── BOOKINGS ──────────────────────────────────────────────────
+function renderBookings() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  const period = window.period_bookings || 'month';
+  const search = document.getElementById('bk-search')?.value || '';
+  const statusF = document.getElementById('bk-status-filter')?.value || 'all';
+  let data = OZ.filterByPeriod(window.BOOKINGS, 'date', period);
+  if (search) data = data.filter(b => b.promoter.toLowerCase().includes(search.toLowerCase()) || b.store.toLowerCase().includes(search.toLowerCase()));
+  if (statusF !== 'all') data = data.filter(b => b.status === statusF);
+
+  document.getElementById('page-bookings').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Bookings</h1><p>Manage promoter assignments and activations</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="OZ.openModal('modal-add-booking')">+ New Booking</button></div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="bk-search" placeholder="🔍 Search promoter or store…" value="${search}" oninput="renderBookings()">
+    <select id="bk-status-filter" onchange="renderBookings()">
+      <option value="all"${statusF==='all'?' selected':''}>All Status</option>
+      <option value="pending"${statusF==='pending'?' selected':''}>Pending</option>
+      <option value="confirmed"${statusF==='confirmed'?' selected':''}>Confirmed</option>
+      <option value="declined"${statusF==='declined'?' selected':''}>Declined</option>
+    </select>
+    ${OZ.periodTabsHtml('bookings','renderBookings()')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} result${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Ref</th><th>Promoter</th><th>Store</th><th>Date</th><th>Shift</th><th>Product</th><th>Pay</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${data.length ? data.map(b=>`<tr>
+    <td><code style="font-size:.74rem;color:var(--oz-accent)">${b.id}</code></td>
+    <td>${b.promoter}</td><td>${b.store}</td><td>${b.date}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${b.shift}</td>
+    <td style="font-size:.8rem">${b.product}</td>
+    <td><span class="pay-badge">${sym}${S.hourlyRate*S.shiftHours}</span></td>
+    <td><span class="badge ${b.status==='confirmed'?'badge-green':b.status==='declined'?'badge-red':'badge-amber'}">${b.status}</span></td>
+    <td>${b.status==='pending'?`<button class="btn btn-sm btn-danger" onclick="OZ.toast('Booking cancelled')">Cancel</button>`:''}
+        ${b.status==='confirmed'?`<span style="font-size:.78rem;color:var(--oz-dim)">Locked</span>`:''}
+        ${b.status==='declined'?`<span style="font-size:.78rem;color:var(--oz-dim)">—</span>`:''}</td>
+  </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--oz-dim);padding:2rem">No bookings found for this period</td></tr>`}
+  </tbody></table></div></div>`;
+}
+function createBooking() { OZ.closeModal('modal-add-booking'); OZ.toast('📅 Booking sent to promoter!'); }
+
+// ── ATTENDANCE ────────────────────────────────────────────────
+function renderAttendance() {
+  const S = window.SETTINGS;
+  const period = window.period_attendance || 'month';
+  const search = document.getElementById('att-search')?.value || '';
+  const statusF = document.getElementById('att-status')?.value || 'all';
+  let data = OZ.filterByPeriod(window.ATTENDANCE, 'date', period);
+  if (search) data = data.filter(a => a.promoter.toLowerCase().includes(search.toLowerCase()) || a.store.toLowerCase().includes(search.toLowerCase()));
+  if (statusF !== 'all') data = data.filter(a => a.status === statusF);
+
+  document.getElementById('page-attendance').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Attendance &amp; Check-ins</h1><p>GPS-verified check-in records</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="att-search" placeholder="🔍 Search promoter or store…" value="${search}" oninput="renderAttendance()">
+    <select id="att-status" onchange="renderAttendance()">
+      <option value="all"${statusF==='all'?' selected':''}>All Status</option>
+      <option value="complete"${statusF==='complete'?' selected':''}>Complete</option>
+      <option value="incomplete"${statusF==='incomplete'?' selected':''}>Incomplete</option>
+    </select>
+    ${OZ.periodTabsHtml('attendance','renderAttendance()')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} records</span>
+  </div>
+  <div class="card" style="margin-bottom:1rem"><div class="table-wrap"><table><thead><tr><th>Promoter</th><th>Store</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>GPS</th><th>Device</th><th>Photos</th><th>Status</th></tr></thead><tbody>
+  ${data.length ? data.map(a=>`<tr><td>${a.promoter}</td><td>${a.store}</td><td>${a.date}</td>
+    <td style="color:var(--oz-green)">${a.checkin}</td><td style="color:var(--oz-muted)">${a.checkout}</td>
+    <td><code style="font-size:.7rem;color:var(--oz-accent)">${a.gps}</code></td>
+    <td><code style="font-size:.7rem;color:var(--oz-dim)">${a.device}</code></td>
+    <td><span class="badge ${a.photos>=S.minPhotosPerShift?'badge-green':'badge-amber'}">${a.photos}/${S.minPhotosPerShift}</span></td>
+    <td><span class="badge ${a.status==='complete'?'badge-green':'badge-amber'}">${a.status}</span></td></tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--oz-dim);padding:2rem">No records for this period</td></tr>`}
+  </tbody></table></div></div>
+  <div class="card"><div class="card-title">GPS Check-in Map</div><div class="map-placeholder"><span style="font-size:1.8rem">🗺️</span><span style="font-size:.87rem">GPS coordinates logged for all check-ins</span><span style="font-size:.73rem;color:var(--oz-dim)">Durban area · ${data.length} locations tracked</span></div></div>`;
+}
+
+// ── STOCK ─────────────────────────────────────────────────────
+function renderStock() {
+  const S = window.SETTINGS;
+  const search = document.getElementById('st-search')?.value || '';
+  const storeF = document.getElementById('st-store')?.value || 'all';
+  let data = window.STOCK;
+  if (search) data = data.filter(s => s.product.toLowerCase().includes(search.toLowerCase()) || s.store.toLowerCase().includes(search.toLowerCase()));
+  if (storeF !== 'all') data = data.filter(s => s.store === storeF);
+
+  document.getElementById('page-stock').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Stock Management</h1><p>Real-time inventory across all stores</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="OZ.toast('Barcode scanner activated')">🔲 Scan Barcode</button></div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="st-search" placeholder="🔍 Search product or store…" value="${search}" oninput="renderStock()">
+    <select id="st-store" onchange="renderStock()">
+      <option value="all"${storeF==='all'?' selected':''}>All Stores</option>
+      ${S.stores.map(s=>`<option${storeF===s?' selected':''}>${s}</option>`).join('')}
+    </select>
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} items</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Product</th><th>Store</th><th>Level</th><th>Qty / PAR</th><th>Status</th><th>Barcode</th><th>Actions</th></tr></thead><tbody>
+  ${data.map(s=>{
+    const p=Math.round((s.qty/s.par)*100);
+    const c=p>60?'fill-high':p>S.lowStockThresholdPct?'fill-med':'fill-low';
+    const b=p>60?'badge-green':p>S.lowStockThresholdPct?'badge-amber':'badge-red';
+    return `<tr><td><code style="font-size:.73rem;color:var(--oz-dim)">${s.sku}</code></td>
+    <td style="font-weight:500">${s.product}</td><td>${s.store}</td>
+    <td><div class="stock-level"><div class="stock-bar"><div class="stock-fill ${c}" style="width:${p}%"></div></div><span style="font-size:.72rem;color:var(--oz-muted)">${p}%</span></div></td>
+    <td><span class="badge ${b}">${s.qty} / ${s.par}</span></td>
+    <td>${p<=S.lowStockThresholdPct?`<span class="badge badge-red">Low Stock</span>`:`<span class="badge badge-green">OK</span>`}</td>
+    <td><code style="font-size:.68rem;color:var(--oz-dim)">${s.barcode}</code></td>
+    <td><button class="btn btn-sm btn-outline" onclick="OZ.toast('Stock updated')">Update</button></td></tr>`;
+  }).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ── REPORTS ───────────────────────────────────────────────────
+function renderReports() {
+  const period = window.period_reports || 'month';
+  const search = document.getElementById('rp-search')?.value || '';
+  const promoterF = document.getElementById('rp-promoter')?.value || 'all';
+  let data = OZ.filterByPeriod(window.REPORTS, 'date', period);
+  if (search) data = data.filter(r=>r.promoter.toLowerCase().includes(search.toLowerCase())||r.store.toLowerCase().includes(search.toLowerCase()));
+  if (promoterF !== 'all') data = data.filter(r=>r.promoter===promoterF);
+
+  document.getElementById('page-reports').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Feedback Reports</h1><p>Shift reports and performance insights</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="rp-search" placeholder="🔍 Search…" value="${search}" oninput="renderReports()">
+    <select id="rp-promoter" onchange="renderReports()">
+      <option value="all"${promoterF==='all'?' selected':''}>All Promoters</option>
+      ${window.PROMOTERS.map(p=>`<option${promoterF===p.name?' selected':''}>${p.name}</option>`).join('')}
+    </select>
+    ${OZ.periodTabsHtml('reports','renderReports()')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} report${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Promoter</th><th>Store</th><th>Date</th><th>Rating</th><th>Customer Feedback</th><th>Sales</th><th>Issues</th></tr></thead><tbody>
+  ${data.length ? data.map(r=>`<tr><td>${r.promoter}</td><td>${r.store}</td><td>${r.date}</td>
+    <td><span class="badge ${r.rating==='Excellent'?'badge-green':r.rating==='Good'?'badge-cyan':'badge-amber'}">${r.rating}</span></td>
+    <td style="font-size:.78rem;max-width:170px;color:var(--oz-muted)">${r.customers}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${r.sales}</td>
+    <td style="font-size:.78rem;color:${r.issues==='None'?'var(--oz-dim)':'var(--oz-orange)'}">${r.issues}</td></tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--oz-dim);padding:2rem">No reports for this period</td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+// ── PHOTOS ────────────────────────────────────────────────────
+function renderPhotos() {
+  const S = window.SETTINGS;
+  const period = window.period_photos || 'month';
+  const search = document.getElementById('ph-search')?.value || '';
+  let data = OZ.filterByPeriod(window.ATTENDANCE, 'date', period);
+  if (search) data = data.filter(a=>a.promoter.toLowerCase().includes(search.toLowerCase()));
+
+  document.getElementById('page-photos').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Interaction Photos</h1><p>Customer engagement evidence — min ${S.minPhotosPerShift} per shift</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="ph-search" placeholder="🔍 Search promoter…" value="${search}" oninput="renderPhotos()">
+    ${OZ.periodTabsHtml('photos','renderPhotos()')}
+  </div>
+  ${data.length ? data.map(a=>`<div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <div><span style="font-weight:600">${a.promoter}</span><span style="color:var(--oz-muted);font-size:.82rem;margin-left:8px">${a.store} · ${a.date}</span></div>
+      <span class="badge ${a.photos>=S.minPhotosPerShift?'badge-green':'badge-amber'}">${a.photos} photos</span>
+    </div>
+    <div class="photo-grid">${Array.from({length:S.minPhotosPerShift},(_,i)=>`<div class="photo-thumb ${i<a.photos?'filled':''}">${i>=a.photos?'📷':''}</div>`).join('')}</div>
+    ${a.photos<S.minPhotosPerShift?`<div style="margin-top:.65rem;font-size:.78rem;color:var(--oz-red)">⚠️ ${S.minPhotosPerShift-a.photos} more photos needed</div>`:''}
+  </div>`).join('') : `<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No photo records for this period</div>`}`;
+}
+
+// ── STORE QR ──────────────────────────────────────────────────
+function renderStoreQR() {
+  const stores = window.SETTINGS.stores;
+  document.getElementById('page-storeqr').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Store QR Codes</h1><p>Printable check-in codes for each store</p></div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+  ${stores.map((store,i)=>`<div class="card" style="text-align:center">
+    <div style="font-weight:600;font-size:.87rem;margin-bottom:.65rem">${store}</div>
+    <div style="display:flex;justify-content:center;margin-bottom:.65rem">
+      <div class="qr-container">
+        <svg width="90" height="90" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="100" fill="white"/>
+          <rect x="8" y="8" width="32" height="32" fill="none" stroke="#000" stroke-width="3"/>
+          <rect x="14" y="14" width="20" height="20" fill="#000"/>
+          <rect x="60" y="8" width="32" height="32" fill="none" stroke="#000" stroke-width="3"/>
+          <rect x="66" y="14" width="20" height="20" fill="#000"/>
+          <rect x="8" y="60" width="32" height="32" fill="none" stroke="#000" stroke-width="3"/>
+          <rect x="14" y="66" width="20" height="20" fill="#000"/>
+          <rect x="${44+(i%3)*4}" y="${44+(i%2)*4}" width="5" height="5" fill="#000"/>
+          <rect x="${52+(i%2)*4}" y="${44+(i%3)*4}" width="5" height="5" fill="#000"/>
+        </svg>
+      </div>
+    </div>
+    <div style="font-size:.7rem;color:var(--oz-muted);margin-bottom:.65rem">STR-${String(i+1).padStart(3,'0')}</div>
+    <button class="btn btn-sm btn-outline" style="width:100%" onclick="OZ.toast('Printed QR for ${store}')">🖨 Print</button>
+  </div>`).join('')}
+  </div>`;
+}
+
+// ── INVOICES ──────────────────────────────────────────────────
+function renderInvoices() {
+  const sym = window.SETTINGS.currencySymbol;
+  const period = window.period_invoices || 'month';
+  const statusF = document.getElementById('inv-status')?.value || 'all';
+  let data = OZ.filterByPeriod(window.INVOICES, 'date', period);
+  if (statusF !== 'all') data = data.filter(i=>i.status===statusF);
+  const total = data.reduce((s,i)=>s+i.amount,0);
+  const paid  = data.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);
+
+  document.getElementById('page-invoices').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Invoices</h1><p>Invoice management and generation</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="OZ.openModal('modal-invoice')">+ New Invoice</button></div>
+  </div>
+  <div class="filter-bar">
+    <select id="inv-status" onchange="renderInvoices()">
+      <option value="all"${statusF==='all'?' selected':''}>All Status</option>
+      <option value="paid"${statusF==='paid'?' selected':''}>Paid</option>
+      <option value="outstanding"${statusF==='outstanding'?' selected':''}>Outstanding</option>
+    </select>
+    ${OZ.periodTabsHtml('invoices','renderInvoices()')}
+  </div>
+  <div class="stats-grid" style="margin-bottom:1rem">
+    <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Total Invoiced</div><div class="stat-value" style="font-size:1.4rem">${sym}${total.toLocaleString()}</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Paid</div><div class="stat-value" style="font-size:1.4rem;color:var(--oz-green)">${sym}${paid.toLocaleString()}</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Outstanding</div><div class="stat-value" style="font-size:1.4rem;color:var(--oz-red)">${sym}${(total-paid).toLocaleString()}</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Invoice #</th><th>Client</th><th>Service</th><th>Amount</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${data.map(i=>`<tr>
+    <td><code style="color:var(--oz-accent);font-size:.78rem">${i.id}</code></td><td>${i.client}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${i.service}</td><td style="font-weight:600">${sym}${i.amount.toLocaleString()}</td><td>${i.date}</td>
+    <td><span class="badge ${i.status==='paid'?'badge-green':'badge-red'}">${i.status}</span></td>
+    <td style="display:flex;gap:5px"><button class="btn btn-sm btn-ghost" onclick="OZ.toast('PDF downloaded')">⬇ PDF</button>${i.status==='outstanding'?`<button class="btn btn-sm btn-success" onclick="OZ.toast('Marked as paid')">Mark Paid</button>`:''}</td>
+  </tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ── PROMOTERS ─────────────────────────────────────────────────
+function renderPromoters() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  const search = document.getElementById('pro-search')?.value || '';
+  const regionF = document.getElementById('pro-region')?.value || 'all';
+  let data = window.PROMOTERS;
+  if (search) data = data.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()));
+  if (regionF !== 'all') data = data.filter(p=>p.region===regionF);
+
+  document.getElementById('page-promoters').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Promoters</h1><p>Active team roster and performance</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="OZ.toast('Invite link copied!')">+ Invite Promoter</button></div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="pro-search" placeholder="🔍 Search name or email…" value="${search}" oninput="renderPromoters()">
+    <select id="pro-region" onchange="renderPromoters()">
+      <option value="all"${regionF==='all'?' selected':''}>All Regions</option>
+      ${S.regions.map(r=>`<option${regionF===r?' selected':''}>${r}</option>`).join('')}
+    </select>
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} promoter${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Device</th><th>Region</th><th>Shifts</th><th>Earnings</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${data.map(p=>`<tr>
+    <td style="font-weight:600">${p.name}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${p.email}</td>
+    <td style="font-size:.78rem">${p.phone}</td>
+    <td><code style="font-size:.7rem;color:var(--oz-dim)">${p.device}</code></td>
+    <td>${p.region}</td><td>${p.shifts}</td>
+    <td style="color:var(--oz-green);font-weight:600">${sym}${(p.shifts*S.hourlyRate*S.shiftHours).toLocaleString()}</td>
+    <td><span class="badge ${p.status==='active'?'badge-green':'badge-gray'}">${p.status}</span></td>
+    <td><button class="btn btn-sm btn-outline" onclick="OZ.toast('Editing ${p.name}')">Edit</button></td>
+  </tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ── APPLICATIONS ──────────────────────────────────────────────
+let currentDeclineId = null;
+let currentApplicationFilter = 'pending';
+
+function renderApplications() {
+  const search = document.getElementById('app-search')?.value || '';
+  const filtered = currentApplicationFilter === 'all' ? window.APPLICATIONS : window.APPLICATIONS.filter(a=>a.status===currentApplicationFilter);
+  let data = filtered;
+  if (search) data = data.filter(a=>(a.firstName+' '+a.lastName).toLowerCase().includes(search.toLowerCase()));
+  const counts = {
+    pending:  window.APPLICATIONS.filter(a=>a.status==='pending').length,
+    approved: window.APPLICATIONS.filter(a=>a.status==='approved').length,
+    declined: window.APPLICATIONS.filter(a=>a.status==='declined').length,
+  };
+
+  let html = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Applications</h1><p>Review, approve or decline promoter applications</p></div>
+    <div class="page-header-actions">
+      <select onchange="currentApplicationFilter=this.value;renderApplications()" style="background:var(--oz-surface2);border:1px solid var(--oz-border2);color:var(--oz-text);padding:7px 11px;border-radius:var(--r);font-family:var(--font-b);font-size:.82rem;outline:none">
+        <option value="pending"${currentApplicationFilter==='pending'?' selected':''}>Pending</option>
+        <option value="approved"${currentApplicationFilter==='approved'?' selected':''}>Approved</option>
+        <option value="declined"${currentApplicationFilter==='declined'?' selected':''}>Declined</option>
+        <option value="all"${currentApplicationFilter==='all'?' selected':''}>All</option>
+      </select>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="app-search" placeholder="🔍 Search applicant name…" value="${search}" oninput="renderApplications()">
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} application${data.length!==1?'s':''}</span>
+  </div>
+  <div class="stats-grid" style="margin-bottom:1rem">
+    <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Pending</div><div class="stat-value">${counts.pending}</div><div class="stat-sub">Awaiting review</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Approved</div><div class="stat-value">${counts.approved}</div><div class="stat-sub">Onboarded</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Declined</div><div class="stat-value">${counts.declined}</div><div class="stat-sub">Not proceeding</div></div>
+  </div>`;
+
+  if (!data.length) {
+    html += `<div class="card" style="text-align:center;padding:3rem"><div style="font-size:2rem;margin-bottom:.75rem">📭</div><div style="font-weight:600">No ${currentApplicationFilter} applications</div></div>`;
+  } else {
+    data.forEach(app => {
+      const statusBadge = app.status==='approved' ? '<span class="badge badge-green">✅ Approved</span>' : app.status==='declined' ? '<span class="badge badge-red">❌ Declined</span>' : '<span class="badge badge-amber">⏳ Pending</span>';
+      let actions = '';
+      if (app.status==='pending') actions = `<button class="btn btn-success" onclick="approveApp('${app.id}')">✅ Approve</button><button class="btn btn-danger" onclick="openDecline('${app.id}')">❌ Decline</button><button class="btn btn-ghost btn-sm" onclick="OZ.toast('Follow-up sent')">📧 Follow Up</button>`;
+      else if (app.status==='approved') actions = `<button class="btn btn-ghost btn-sm" onclick="OZ.toast('Welcome email resent')">Resend Welcome</button><button class="btn btn-warning btn-sm" onclick="revokeApp('${app.id}')">Revoke</button>`;
+      else actions = `<button class="btn btn-ghost btn-sm" onclick="reconsiderApp('${app.id}')">↩ Reconsider</button>`;
+      html += `<div class="applicant-card">
+        <div class="ac-header"><div><div class="ac-name">${app.firstName} ${app.lastName}</div><div class="ac-meta">📧 ${app.email} · 📱 ${app.phone} · Applied: ${app.appliedDate}</div></div>${statusBadge}</div>
+        <div class="ac-details">
+          <div><div class="adi-label">Region</div><div class="adi-value">📍 ${app.region||'—'}</div></div>
+          <div><div class="adi-label">Experience</div><div class="adi-value">💼 ${app.experience||'—'}</div></div>
+          <div><div class="adi-label">SA ID</div><div class="adi-value">${app.idNumber||'—'}</div></div>
+          <div><div class="adi-label">Ref</div><div class="adi-value"><code style="color:var(--oz-accent);font-size:.75rem">${app.id}</code></div></div>
+        </div>
+        <div style="font-size:.66rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:5px">Motivation</div>
+        <div class="ac-motivation">${app.motivation||'—'}</div>
+        <div class="ac-actions">${actions}</div>
+      </div>`;
+    });
+  }
+  document.getElementById('page-applications').innerHTML = html;
+}
+function approveApp(id) { const a=window.APPLICATIONS.find(x=>x.id===id); if(!a)return; a.status='approved'; buildNav(); renderApplications(); OZ.toast('✅ '+a.firstName+' approved!'); }
+function openDecline(id) { currentDeclineId=id; OZ.openModal('modal-decline'); }
+function confirmDecline() { const a=window.APPLICATIONS.find(x=>x.id===currentDeclineId); if(a){a.status='declined';buildNav();renderApplications();OZ.toast('Application declined.');} OZ.closeModal('modal-decline'); currentDeclineId=null; }
+function revokeApp(id) { const a=window.APPLICATIONS.find(x=>x.id===id); if(!a)return; a.status='pending'; buildNav(); renderApplications(); OZ.toast('Approval revoked.'); }
+function reconsiderApp(id) { const a=window.APPLICATIONS.find(x=>x.id===id); if(!a)return; a.status='pending'; buildNav(); renderApplications(); OZ.toast('Moved back to pending.'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ── PRODUCTS ──────────────────────────────────────────────────
+function renderProducts() {
+  document.getElementById('page-products').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Products &amp; Campaigns</h1><p>Manage promoted products — add more as your catalogue grows</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="OZ.openModal('modal-add-product')">+ Add Product</button></div>
+  </div>
+  <div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);border-radius:var(--r);padding:12px 15px;margin-bottom:1.2rem;font-size:.82rem;color:var(--oz-muted)">
+    <strong style="color:var(--oz-text)">💡 Tip:</strong> Products added here automatically appear when creating bookings.
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem">
+  ${window.PRODUCTS.map(p=>`<div class="card">
+    <div class="pc-header"><div><div class="pc-name">${p.name}</div><div class="pc-sku">SKU: ${p.sku} · ${p.category}</div></div><span class="badge ${p.status==='active'?'badge-green':'badge-gray'}">${p.status}</span></div>
+    <div class="pc-body">${p.desc}</div>
+    <div class="pc-tags"><span class="badge badge-cyan">📦 Active</span><span style="font-size:.72rem;color:var(--oz-dim)">${p.barcode}</span></div>
+    <div style="display:flex;gap:7px;margin-top:.7rem">
+      <button class="btn btn-sm btn-ghost" onclick="OZ.toast('Editing ${p.name}')">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="OZ.toast('Product deactivated')">Deactivate</button>
+    </div>
+  </div>`).join('')}
+  </div>
+  <div style="margin-top:1rem;background:var(--oz-card);border:1px dashed var(--oz-border2);border-radius:var(--r-lg);padding:2rem;text-align:center">
+    <div style="font-size:2rem;margin-bottom:.5rem">📦</div>
+    <div style="font-weight:600;margin-bottom:4px">Ready to add your next product?</div>
+    <div style="font-size:.84rem;color:var(--oz-muted);margin-bottom:1rem">New products appear in booking forms immediately after adding.</div>
+    <button class="btn btn-accent" onclick="OZ.openModal('modal-add-product')">+ Add Product</button>
+  </div>`;
+}
+function addProduct() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) { OZ.toast('Product name required'); return; }
+  window.PRODUCTS.push({ id:'P'+String(window.PRODUCTS.length+1).padStart(3,'0'), name, sku:document.getElementById('np-sku').value||'OZ-NEW', category:document.getElementById('np-cat').value, desc:document.getElementById('np-desc').value, barcode:document.getElementById('np-barcode').value||'—', status:document.getElementById('np-status').value });
+  OZ.closeModal('modal-add-product'); renderProducts(); OZ.toast('✅ '+name+' added!');
+}
+
+// ── BUSINESS INTELLIGENCE ─────────────────────────────────────
+function renderBI() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  document.getElementById('page-bi').innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Business Intelligence</h1><p>Revenue trends, performance, and predictive insights</p></div>
+    <div class="page-header-actions">${OZ.periodTabsHtml('bi','renderBI()')}</div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card" style="--kpi-color:var(--oz-accent)"><div class="kpi-val">${sym}17,000</div><div class="kpi-label">Revenue (Month)</div><div class="kpi-change kpi-up">↑ 12% vs last month</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-green)"><div class="kpi-val">47</div><div class="kpi-label">Shifts Completed</div><div class="kpi-change kpi-up">↑ 8% vs last month</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-accent3)"><div class="kpi-val">94%</div><div class="kpi-label">Attendance Rate</div><div class="kpi-change kpi-up">↑ 3% vs last month</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-pink)"><div class="kpi-val">11.2</div><div class="kpi-label">Avg Photos/Shift</div><div class="kpi-change kpi-up">↑ Above min (${S.minPhotosPerShift})</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-red)"><div class="kpi-val">${sym}6,300</div><div class="kpi-label">Outstanding</div><div class="kpi-change kpi-down">↓ 2 invoices unpaid</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-accent2)"><div class="kpi-val">4.3★</div><div class="kpi-label">Avg Shift Rating</div><div class="kpi-change kpi-up">↑ Based on reports</div></div>
+  </div>
+  <div class="two-col" style="margin-bottom:1rem">
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Monthly Revenue (${sym})</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-revenue"></canvas></div>
+      <div class="bi-insight-box"><div class="bi-i-label">Insight</div><div class="bi-i-text">June on track to be the strongest month YTD. Projected end-of-month: ${sym}21,000 — a 12% increase over May.</div></div>
+    </div>
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Shifts Per Promoter</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-shifts"></canvas></div>
+      <div class="bi-insight-box"><div class="bi-i-label">Insight</div><div class="bi-i-text">Ayanda Nkosi leads with 31 shifts. Bongani Cele (9 shifts) is underutilised — consider more bookings in his region.</div></div>
+    </div>
+  </div>
+  <div class="two-col" style="margin-bottom:1rem">
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Attendance Rate by Promoter (%)</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="chart-attendance"></canvas></div>
+    </div>
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Invoice Status Breakdown</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="chart-invoices"></canvas></div>
+    </div>
+  </div>
+  <div class="two-col" style="margin-bottom:1rem">
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Stock Levels Across Stores (%)</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-stock"></canvas></div>
+      <div class="bi-insight-box"><div class="bi-i-label">Predictive Alert</div><div class="bi-i-text">At current depletion rate, Checkers La Lucia will run out of Aqua Mist in ~3 days. Reorder recommended.</div></div>
+    </div>
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Report Rating Distribution</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-ratings"></canvas></div>
+    </div>
+  </div>
+  <div class="bi-chart-card" style="margin-bottom:1rem">
+    <div class="bi-chart-title">Weekly Shift Activity — Last 6 Weeks</div>
+    <div class="chart-wrap" style="height:180px"><canvas id="chart-weekly"></canvas></div>
+    <div class="bi-insight-box"><div class="bi-i-label">Trend</div><div class="bi-i-text">Shift volume is growing week-on-week. If the trend continues, you'll need 1–2 additional promoters by end of July.</div></div>
+  </div>`;
+
+  setTimeout(() => {
+    const grid='rgba(255,255,255,.05)',txt='rgba(136,153,187,.8)',accent='rgba(0,212,255,.75)',green='rgba(16,185,129,.75)',amber='rgba(245,158,11,.75)',red='rgba(239,68,68,.75)',purple='rgba(124,58,237,.75)';
+    const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:grid},ticks:{color:txt,font:{size:11}}},y:{grid:{color:grid},ticks:{color:txt,font:{size:11}}}}};
+    biCharts.revenue  = new Chart(document.getElementById('chart-revenue'),{type:'bar',data:{labels:['Jan','Feb','Mar','Apr','May','Jun'],datasets:[{data:[8500,11200,9800,13400,15200,17000],backgroundColor:['rgba(255,255,255,.06)','rgba(255,255,255,.06)','rgba(255,255,255,.06)','rgba(255,255,255,.06)','rgba(255,255,255,.06)',accent],borderRadius:4}]},options:{...base}});
+    biCharts.shifts   = new Chart(document.getElementById('chart-shifts'),{type:'bar',data:{labels:['Zanele','Sipho','Ayanda','Thandeka','Bongani'],datasets:[{data:[24,18,31,15,9],backgroundColor:[accent,green,amber,purple,red],borderRadius:4}]},options:{...base}});
+    biCharts.attendance=new Chart(document.getElementById('chart-attendance'),{type:'bar',data:{labels:['Zanele','Sipho','Ayanda','Thandeka','Bongani'],datasets:[{data:[100,95,90,100,80],backgroundColor:[green,green,amber,green,red],borderRadius:4}]},options:{...base,scales:{...base.scales,y:{...base.scales.y,max:110}}}});
+    const paid=window.INVOICES.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);
+    const outs=window.INVOICES.filter(i=>i.status==='outstanding').reduce((s,i)=>s+i.amount,0);
+    biCharts.invoices = new Chart(document.getElementById('chart-invoices'),{type:'doughnut',data:{labels:['Paid','Outstanding'],datasets:[{data:[paid,outs],backgroundColor:[green,red],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:txt,font:{size:11},boxWidth:12}}},cutout:'65%'}});
+    biCharts.stock    = new Chart(document.getElementById('chart-stock'),{type:'bar',data:{labels:window.STOCK.map(s=>s.store.split('—')[0].trim()),datasets:[{data:window.STOCK.map(s=>Math.round((s.qty/s.par)*100)),backgroundColor:window.STOCK.map(s=>{const p=Math.round((s.qty/s.par)*100);return p>60?green:p>20?amber:red;}),borderRadius:4}]},options:{...base,scales:{...base.scales,y:{...base.scales.y,max:110}}}});
+    biCharts.ratings  = new Chart(document.getElementById('chart-ratings'),{type:'pie',data:{labels:['Excellent','Good','Average'],datasets:[{data:[3,2,0],backgroundColor:[green,accent,amber],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:txt,font:{size:11},boxWidth:12}}}}});
+    biCharts.weekly   = new Chart(document.getElementById('chart-weekly'),{type:'line',data:{labels:['Wk 1','Wk 2','Wk 3','Wk 4','Wk 5','Wk 6'],datasets:[{data:[6,8,7,9,10,11],borderColor:accent,backgroundColor:'rgba(0,212,255,.08)',fill:true,tension:.4,pointBackgroundColor:accent,pointRadius:4}]},options:{...base}});
+  }, 80);
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────
+function renderSettings() {
+  const S = window.SETTINGS;
+  const storeTagsHtml = S.stores.map((s,i)=>`<span class="store-tag">${s}<button onclick="removeStore(${i})">✕</button></span>`).join('');
+  document.getElementById('page-settings').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Settings</h1><p>System-wide configuration — changes apply immediately</p></div></div>
+  <div class="settings-grid">
+    <div class="settings-card">
+      <div class="settings-card-title">💰 Pay &amp; Rates</div>
+      <div class="setting-row"><div><div class="sr-label">Hourly Rate (${S.currencySymbol})</div><div class="sr-sub">Base rate for all promoters</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.hourlyRate}" min="0" onchange="window.SETTINGS.hourlyRate=+this.value;OZ.toast('Rate updated to R'+this.value+'/hr')"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Standard Shift Hours</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.shiftHours}" min="1" max="12" onchange="window.SETTINGS.shiftHours=+this.value"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Payment Terms (Days)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.paymentTermsDays}" min="1" onchange="window.SETTINGS.paymentTermsDays=+this.value"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Tax Rate (%)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.taxRate}" min="0" max="100" onchange="window.SETTINGS.taxRate=+this.value"></div></div>
+      <div style="margin-top:1rem;padding:10px 13px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.16);border-radius:var(--r);font-size:.82rem;color:var(--oz-muted)">
+        Shift pay: <strong style="color:var(--oz-green)">${S.currencySymbol}${S.hourlyRate*S.shiftHours}</strong> (${S.currencySymbol}${S.hourlyRate} × ${S.shiftHours}hrs)
+      </div>
+    </div>
+    <div class="settings-card">
+      <div class="settings-card-title">⚡ Shift Rules</div>
+      <div class="setting-row"><div><div class="sr-label">Min Photos Per Shift</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.minPhotosPerShift}" min="1" onchange="window.SETTINGS.minPhotosPerShift=+this.value"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Late Check-in Threshold (min)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.lateCheckinThresholdMins}" min="1" onchange="window.SETTINGS.lateCheckinThresholdMins=+this.value"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Check-in GPS Radius (m)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.checkinRadiusMeters}" min="50" onchange="window.SETTINGS.checkinRadiusMeters=+this.value"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Feedback Before Checkout</div><div class="sr-sub">Report must be submitted first</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S.requireFeedbackBeforeCheckout?'checked':''} onchange="window.SETTINGS.requireFeedbackBeforeCheckout=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Show Earnings to Promoter</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S.showEarningsToPromoter?'checked':''} onchange="window.SETTINGS.showEarningsToPromoter=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">GPS Verification</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S.enableGPSVerification?'checked':''} onchange="window.SETTINGS.enableGPSVerification=this.checked"><span class="toggle-slider"></span></label></div></div>
+    </div>
+    <div class="settings-card">
+      <div class="settings-card-title">🏪 Store Management</div>
+      <div style="margin-bottom:.75rem"><div style="font-size:.78rem;color:var(--oz-muted);margin-bottom:6px">Active stores</div><div id="store-tags-wrap">${storeTagsHtml}</div></div>
+      <div style="display:flex;gap:7px;margin-top:.75rem">
+        <input class="settings-input-wide" type="text" id="new-store-input" placeholder="e.g. Clicks — Durban" style="flex:1;width:auto">
+        <button class="btn btn-accent btn-sm" onclick="addStore()">+ Add</button>
+      </div>
+    </div>
+    <div class="settings-card">
+      <div class="settings-card-title">🔔 Notifications</div>
+      ${[['New Application','notifyNewApplication'],['Booking Response','notifyBookingResponse'],['Low Stock Alert','notifyLowStock'],['Invoice Overdue','notifyInvoiceOverdue'],['Daily Report','notifyDailyReport']].map(([label,key])=>`
+      <div class="setting-row"><div><div class="sr-label">${label}</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S[key]?'checked':''} onchange="window.SETTINGS.${key}=this.checked"><span class="toggle-slider"></span></label></div></div>`).join('')}
+      <div class="setting-row"><div><div class="sr-label">Low Stock Threshold (%)</div></div><div class="sr-control"><div class="range-control"><input type="range" min="5" max="50" value="${S.lowStockThresholdPct}" step="5" oninput="window.SETTINGS.lowStockThresholdPct=+this.value;this.nextElementSibling.textContent=this.value+'%'"><span class="range-val">${S.lowStockThresholdPct}%</span></div></div></div>
+    </div>
+    <div class="settings-card">
+      <div class="settings-card-title">🎨 Appearance</div>
+      <div class="setting-row"><div><div class="sr-label">Accent Color</div></div><div class="sr-control"><input type="color" value="${S.accentColor}" onchange="window.SETTINGS.accentColor=this.value;document.documentElement.style.setProperty('--oz-accent',this.value)" style="width:44px;height:28px;border-radius:6px;border:1px solid var(--oz-border2);background:none;cursor:pointer"></div></div>
+      <div class="color-swatch-row">
+        ${['#00d4ff','#10b981','#f59e0b','#ec4899','#7c3aed','#ef4444','#f97316'].map(c=>`<div class="color-swatch" style="background:${c}" onclick="applyAccent('${c}')"></div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+function addStore(){const v=document.getElementById('new-store-input').value.trim();if(!v){OZ.toast('Store name required');return;}window.SETTINGS.stores.push(v);document.getElementById('new-store-input').value='';document.getElementById('store-tags-wrap').innerHTML=window.SETTINGS.stores.map((s,i)=>`<span class="store-tag">${s}<button onclick="removeStore(${i})">✕</button></span>`).join('');OZ.toast('Store added: '+v);}
+function removeStore(i){window.SETTINGS.stores.splice(i,1);document.getElementById('store-tags-wrap').innerHTML=window.SETTINGS.stores.map((s,j)=>`<span class="store-tag">${s}<button onclick="removeStore(${j})">✕</button></span>`).join('');OZ.toast('Store removed');}
+function applyAccent(c){window.SETTINGS.accentColor=c;document.documentElement.style.setProperty('--oz-accent',c);OZ.toast('Accent updated');}
+
+// ── CHATBOT ────────────────────────────────────────────────────
+let chatOpen = false;
+const KB = {
+  greeting: "Hi Nomsa! 👋 I'm here to help you navigate the system. Ask about bookings, applications, stock, invoices, or settings.",
+  quickReplies: ["📅 Create booking","📊 BI Dashboard","📋 Pending applications","📦 Stock levels","⚙️ Settings"],
+  responses: {
+    "booking":     "Go to **Bookings** in the sidebar to manage assignments. Click **+ New Booking** to create one.",
+    "bi":          "The **Business Intelligence** page shows revenue trends, promoter performance, stock, and invoice charts.",
+    "dashboard":   "The **Dashboard** gives a quick overview of bookings, pending applications, low stock, and recent activity.",
+    "application": "Go to **Applications** to review, approve or decline promoter applications.",
+    "stock":       "Check **Stock Management** for inventory levels across all stores.",
+    "invoice":     "Go to **Invoices** to view, generate, and mark invoices paid.",
+    "promoter":    "See **Promoters** for your full team roster, earnings, and status.",
+    "setting":     "Go to **Settings** to configure pay rates, shift rules, notifications, and stores.",
+    "report":      "**Feedback Reports** shows all shift reports submitted by promoters.",
+    "qr":          "Go to **Store QR Codes** to view and print check-in codes for each store.",
+    "default":     "I can help navigate the manager system. Try asking about bookings, stock, invoices, BI, applications, or settings."
+  }
+};
+function toggleChat(){chatOpen=!chatOpen;document.getElementById('chat-panel').classList.toggle('open',chatOpen);document.getElementById('chat-badge').style.display='none';if(chatOpen&&document.getElementById('chat-messages').children.length===0){addBot(KB.greeting);setQR(KB.quickReplies);}}
+function addBot(text,delay=0){const msgs=document.getElementById('chat-messages');if(delay>0){const t=document.createElement('div');t.className='chat-msg bot';t.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';t.id='typ';msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;setTimeout(()=>{document.getElementById('typ')?.remove();appendBot(text);},delay);}else appendBot(text);}
+function appendBot(text){const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg bot';el.innerHTML=`<div class="chat-bubble">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;}
+function setQR(chips){document.getElementById('chat-qr').innerHTML=chips.map(c=>`<span class="qr-chip" onclick="handleQR('${c}')">${c}</span>`).join('');}
+function handleQR(text){document.getElementById('chat-qr').innerHTML='';sendMsg(text);}
+function sendChat(){const i=document.getElementById('chat-input'),t=i.value.trim();if(!t)return;i.value='';sendMsg(t);}
+function sendMsg(text){
+  const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg user';
+  el.innerHTML=`<div class="chat-bubble">${text}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
+  const q=text.toLowerCase();let r=null;
+  if(q.includes('booking')){r=KB.responses['booking'];setTimeout(()=>showPage('bookings'),1200);}
+  else if(q.includes('bi')||q.includes('intelligence')){r=KB.responses['bi'];setTimeout(()=>showPage('bi'),1200);}
+  else if(q.includes('application')){r=KB.responses['application'];setTimeout(()=>showPage('applications'),1200);}
+  else if(q.includes('setting')){r=KB.responses['setting'];setTimeout(()=>showPage('settings'),1200);}
+  else if(q.includes('stock')){r=KB.responses['stock'];setTimeout(()=>showPage('stock'),1200);}
+  else if(q.includes('invoice')){r=KB.responses['invoice'];setTimeout(()=>showPage('invoices'),1200);}
+  else{for(const[k,v]of Object.entries(KB.responses)){if(k!=='default'&&q.includes(k)){r=v;break;}}}
+  if(!r)r=KB.responses['default'];
+  addBot(r,750);
+  setTimeout(()=>setQR(["📅 Bookings","📊 BI Dashboard","📋 Applications","⚙️ Settings"]),900);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────
+buildNav();
+showPage('dashboard');
+document.getElementById('booking-rate-display').textContent = window.SETTINGS.hourlyRate;
+document.getElementById('booking-total-display').textContent = window.SETTINGS.hourlyRate * window.SETTINGS.shiftHours;
+</script>
+</body>
+</html>

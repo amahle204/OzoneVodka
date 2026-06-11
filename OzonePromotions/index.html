@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ozone Promotions Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="ozonestyles.css"> 
+</head>
+<body>
+
+<!-- ===========================
+     LANDING PAGE
+     =========================== -->
+<div id="landing-screen" class="active">
+  <nav class="land-nav">
+    <div class="land-brand">⬡ OZONE</div>
+    <div class="land-nav-actions">
+      <button class="land-pill-btn land-pill-outline" onclick="showScreen('login-screen')" style="padding:8px 20px;font-size:.82rem;">Sign In</button>
+      <button class="land-pill-btn land-pill-primary" onclick="showScreen('signup-step1')" style="padding:8px 20px;font-size:.82rem;">Apply as Promoter</button>
+    </div>
+  </nav>
+
+  <div class="land-hero">
+    <div class="land-eyebrow">Promotions Management Platform</div>
+    <h1 class="land-h1">Run your <span>field team</span><br>without the chaos</h1>
+    <p class="land-sub">Ozone gives brand promoters and managers a single place to handle bookings, attendance, stock, invoices, and performance — all in real time.</p>
+    <div class="land-ctas">
+      <button class="land-pill-btn land-pill-primary" onclick="doLogin('manager')">Manager Demo →</button>
+      <button class="land-pill-btn land-pill-outline" onclick="doLogin('promoter')">Promoter Demo</button>
+    </div>
+    <div class="land-stats">
+      <div class="land-stat"><div class="ls-val">R65</div><div class="ls-label">Hourly rate</div></div>
+      <div class="land-stat"><div class="ls-val">4</div><div class="ls-label">Active stores</div></div>
+      <div class="land-stat"><div class="ls-val">24/7</div><div class="ls-label">System access</div></div>
+      <div class="land-stat"><div class="ls-val">5 days</div><div class="ls-label">Payment terms</div></div>
+    </div>
+    <div class="land-features">
+      <div class="land-feat"><div class="lf-icon">📅</div><div class="lf-title">Smart Booking</div><div class="lf-body">Assign promoters to stores with one click. They accept or decline via the app.</div></div>
+      <div class="land-feat"><div class="lf-icon">📍</div><div class="lf-title">GPS Check-in</div><div class="lf-body">QR code check-in with GPS verification. No more attendance disputes.</div></div>
+      <div class="land-feat"><div class="lf-icon">📦</div><div class="lf-title">Stock Tracking</div><div class="lf-body">Real-time stock levels per store. Low-stock alerts before you run out.</div></div>
+      <div class="land-feat"><div class="lf-icon">📊</div><div class="lf-title">BI Dashboard</div><div class="lf-body">Revenue trends, promoter performance, and predictive insights in one view.</div></div>
+      <div class="land-feat"><div class="lf-icon">🧾</div><div class="lf-title">Auto Invoicing</div><div class="lf-body">Generate, track, and mark invoices paid — all from the finance panel.</div></div>
+      <div class="land-feat"><div class="lf-icon">🤖</div><div class="lf-title">AI Assistant</div><div class="lf-body">Intelligent chatbot answers applicant questions and guides promoters.</div></div>
+    </div>
+  </div>
+  <div class="land-footer">© 2025 Ozone Beauty Promotions · Built for field teams across South Africa</div>
+</div>
+
+<!-- ===========================
+     LOGIN
+     =========================== -->
+<div id="login-screen" class="auth-screen">
+  <div class="login-left">
+    <div style="margin-bottom:2.5rem">
+      <div class="login-brand-big">⬡ OZONE</div>
+      <div class="login-tagline">Promotions Management</div>
+    </div>
+    <div class="login-form-wrap">
+      <div class="lf-title">Welcome back</div>
+      <div class="lf-sub" style="margin-bottom:1.5rem">Sign in to your account to continue.</div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="login-email" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="login-role">
+          <option value="manager">Manager</option>
+          <option value="promoter">Promoter</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="doLoginFromForm()">Sign In →</button>
+      <div class="auth-link" style="margin-top:.85rem">New promoter? <a onclick="showScreen('signup-step1')">Apply here</a> &nbsp;·&nbsp; <a onclick="showScreen('landing-screen')">← Back</a></div>
+      <div style="text-align:center;margin-top:.5rem;font-size:.72rem;color:var(--oz-dim)">Demo: select any role and click Sign In</div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-right-content">
+      <div class="lrc-eyebrow">For Promoters</div>
+      <div class="lrc-h2">Your shifts.<br>Your earnings.<br>Your proof.</div>
+      <div class="lrc-bullets">
+        <div class="lrc-bullet"><div class="lrc-bullet-dot">✓</div>View and respond to booking requests</div>
+        <div class="lrc-bullet"><div class="lrc-bullet-dot">✓</div>QR code check-in with GPS verification</div>
+        <div class="lrc-bullet"><div class="lrc-bullet-dot">✓</div>Upload interaction photos per shift</div>
+        <div class="lrc-bullet"><div class="lrc-bullet-dot">✓</div>Submit feedback reports on the go</div>
+        <div class="lrc-bullet"><div class="lrc-bullet-dot">✓</div>Track all your earnings in one place</div>
+      </div>
+      <div class="lrc-apply-box">
+        <div class="lab-title">Not yet a promoter?</div>
+        <div class="lab-sub">Applications take 5 minutes. Approval within 2–3 business days.</div>
+        <button class="btn btn-outline" onclick="showScreen('signup-step1')">Apply Now →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===========================
+     SIGNUP STEP 1 — About the Role
+     =========================== -->
+<div id="signup-step1" class="auth-screen">
+  <div class="signup-wrap">
+    <div class="signup-brand-row">
+      <div class="signup-brand">⬡ OZONE</div>
+      <div class="signup-brand-sep">·</div>
+      <div class="signup-brand-label">Promoter Application</div>
+    </div>
+    <div class="signup-steps">
+      <div class="step-item"><div class="step-circle active">1</div><div class="step-label active">About the Role</div></div>
+      <div class="step-connector"></div>
+      <div class="step-item"><div class="step-circle">2</div><div class="step-label">Your Details</div></div>
+    </div>
+    <h1 class="signup-h1">In-Store Brand Promoter</h1>
+    <p class="signup-sub">Represent Ozone beauty products at leading retail stores across South Africa.</p>
+    <div class="pay-highlight">
+      <div>
+        <div class="ph-label">Your Rate</div>
+        <div class="ph-amount">R65<span style="font-size:1rem;font-weight:500;color:var(--oz-muted)">/hr</span></div>
+        <div class="ph-note">R520 per 8-hour shift · Paid within 5 business days</div>
+      </div>
+      <div style="text-align:right">
+        <div class="ph-label">Typical Shift</div>
+        <div style="font-family:var(--font-h);font-size:1.3rem;font-weight:700;margin:3px 0">8 hrs</div>
+        <div class="ph-note">Flexible scheduling</div>
+      </div>
+    </div>
+    <div class="job-info-grid">
+      <div class="job-info-card"><div class="ji-icon">📍</div><div class="ji-title">Locations</div><div class="ji-body">Clicks, Dis-Chem, Checkers, Pick n Pay — KZN, Gauteng &amp; Western Cape</div></div>
+      <div class="job-info-card"><div class="ji-icon">🕐</div><div class="ji-title">Shift Hours</div><div class="ji-body">Flexible 8-hour shifts. Morning or afternoon. Bookings sent via the app in advance.</div></div>
+      <div class="job-info-card"><div class="ji-icon">📋</div><div class="ji-title">Requirements</div><div class="ji-body">Matric or equivalent. Customer-facing experience preferred. Smartphone required.</div></div>
+      <div class="job-info-card"><div class="ji-icon">📦</div><div class="ji-title">Your Duties</div><div class="ji-body">Sampling, stock checks, 10+ interaction photos, and an end-of-shift report.</div></div>
+      <div class="job-info-card"><div class="ji-icon">🚀</div><div class="ji-title">How it Works</div><div class="ji-body">Apply → Approval → Onboarding → Book shifts and go live.</div></div>
+      <div class="job-info-card"><div class="ji-icon">💬</div><div class="ji-title">Questions?</div><div class="ji-body">Chat with our assistant — bottom-right corner — for instant answers.</div></div>
+    </div>
+    <button class="btn-primary" onclick="showScreen('signup-step2')">I'm Interested — Apply Now →</button>
+    <div class="auth-link" style="margin-top:.75rem"><a onclick="showScreen('login-screen')">← Back to Sign In</a></div>
+  </div>
+</div>
+
+<!-- ===========================
+     SIGNUP STEP 2 — Details
+     =========================== -->
+<div id="signup-step2" class="auth-screen">
+  <div class="signup-wrap">
+    <div class="signup-brand-row">
+      <div class="signup-brand">⬡ OZONE</div>
+      <div class="signup-brand-sep">·</div>
+      <div class="signup-brand-label">Promoter Application</div>
+    </div>
+    <div class="signup-steps">
+      <div class="step-item"><div class="step-circle done">✓</div><div class="step-label done">About the Role</div></div>
+      <div class="step-connector done"></div>
+      <div class="step-item"><div class="step-circle active">2</div><div class="step-label active">Your Details</div></div>
+    </div>
+    <h1 class="signup-h1">Your Application</h1>
+    <p class="signup-sub">All fields required unless marked optional.</p>
+
+    <div class="form-section-title">Personal Information</div>
+    <div class="form-row">
+      <div class="form-group"><label>First Name</label><input type="text" id="reg-firstname" placeholder="e.g. Zanele"></div>
+      <div class="form-group"><label>Last Name</label><input type="text" id="reg-lastname" placeholder="e.g. Dlamini"></div>
+    </div>
+    <div class="form-group"><label>Email Address</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Phone Number</label><input type="tel" id="reg-phone" placeholder="+27 82 000 0000"></div>
+      <div class="form-group"><label>SA ID Number</label><input type="text" id="reg-id" placeholder="9001015800086"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Preferred Region</label>
+        <select id="reg-region"><option value="">Select region…</option><option>KwaZulu-Natal</option><option>Gauteng</option><option>Western Cape</option><option>Eastern Cape</option></select>
+      </div>
+      <div class="form-group">
+        <label>Experience Level</label>
+        <select id="reg-exp"><option value="">Select…</option><option>No experience (willing to learn)</option><option>Less than 1 year</option><option>1–2 years</option><option>3+ years</option></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Why do you want to join Ozone? <span style="color:var(--oz-dim);text-transform:none;font-size:.68rem">(min 30 words)</span></label>
+      <textarea id="reg-motivation" placeholder="Tell us about yourself and why you'd make a great Ozone brand promoter…"></textarea>
+    </div>
+
+    <div class="form-divider"></div>
+    <div class="form-section-title">Create Your Password</div>
+    <div class="form-row">
+      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Min. 8 characters"></div>
+      <div class="form-group"><label>Confirm Password</label><input type="password" id="reg-confirm" placeholder="Repeat password"></div>
+    </div>
+
+    <button class="btn-primary" onclick="submitApplication()">Submit Application →</button>
+    <div class="auth-link" style="margin-top:.75rem"><a onclick="showScreen('signup-step1')">← Back to job info</a></div>
+  </div>
+</div>
+
+<!-- ===========================
+     SIGNUP CONFIRM
+     =========================== -->
+<div id="signup-confirm" class="auth-screen">
+  <div class="signup-wrap" style="max-width:480px;text-align:center">
+    <div class="signup-brand-row" style="justify-content:center">
+      <div class="signup-brand">⬡ OZONE</div>
+    </div>
+    <div class="confirm-banner">
+      <div class="cb-icon">📩</div>
+      <div class="cb-title">Application Submitted!</div>
+      <div class="cb-body">Thank you for applying. We've sent a confirmation to <strong id="confirm-email-display" style="color:var(--oz-accent)"></strong>.<br><br>Our team reviews applications within <strong style="color:var(--oz-text)">2–3 business days</strong>.</div>
+    </div>
+    <div style="background:var(--oz-card);border:1px solid var(--oz-border);border-radius:var(--r);padding:14px;margin-bottom:1.5rem;text-align:left">
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:8px">What happens next</div>
+      <div style="font-size:.8rem;color:var(--oz-muted);display:flex;flex-direction:column;gap:6px">
+        <div>1. ✉️ Verify your email address</div>
+        <div>2. 🔍 Our manager reviews your application</div>
+        <div>3. ✅ Approval notification sent</div>
+        <div>4. 🚀 Log in and start booking shifts!</div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="showScreen('login-screen')">Back to Sign In</button>
+  </div>
+</div>
+
+<!-- ===========================
+     MAIN APP
+     =========================== -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-brand"><div class="brand">⬡ OZONE</div><div class="sub">Promotions System</div></div>
+    <div class="user-badge">
+      <div class="user-avatar" id="sidebar-avatar"></div>
+      <div class="user-info">
+        <div class="name" id="sidebar-name"></div>
+        <span class="role-badge" id="sidebar-role-badge"></span>
+      </div>
+    </div>
+    <div id="nav-menu"></div>
+    <div class="sidebar-bottom"><button class="btn-logout" onclick="doLogout()">⏻ Sign Out</button></div>
+  </nav>
+  <main class="main-content">
+    <div class="page" id="page-dashboard"></div>
+    <div class="page" id="page-bookings"></div>
+    <div class="page" id="page-attendance"></div>
+    <div class="page" id="page-stock"></div>
+    <div class="page" id="page-reports"></div>
+    <div class="page" id="page-photos"></div>
+    <div class="page" id="page-invoices"></div>
+    <div class="page" id="page-promoters"></div>
+    <div class="page" id="page-applications"></div>
+    <div class="page" id="page-products"></div>
+    <div class="page" id="page-bi"></div>
+    <div class="page" id="page-settings"></div>
+    <div class="page" id="page-storeqr"></div>
+    <div class="page" id="page-mybookings"></div>
+    <div class="page" id="page-myshift"></div>
+    <div class="page" id="page-mypay"></div>
+  </main>
+</div>
+
+<!-- ===========================
+     MODALS
+     =========================== -->
+<div class="modal-overlay" id="modal-add-booking">
+  <div class="modal">
+    <h2>📅 Create New Booking</h2>
+    <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.18);border-radius:var(--r);padding:10px 13px;margin-bottom:1rem;font-size:.87rem">
+      Pay Rate: R<span id="booking-rate-display">65</span>/hr · 8-hour shift = <strong style="color:var(--oz-green)">R<span id="booking-total-display">520</span></strong>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Promoter</label><select id="bk-promoter"><option>Zanele Dlamini</option><option>Sipho Mokoena</option><option>Ayanda Nkosi</option><option>Thandeka Zulu</option></select></div>
+      <div class="form-group"><label>Store</label><select id="bk-store"><option>Clicks — Gateway</option><option>Checkers — La Lucia</option><option>Dis-Chem — Pavilion</option><option>Pick n Pay — Musgrave</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="bk-date"></div>
+      <div class="form-group"><label>Shift</label><select id="bk-shift"><option>08:00–16:00</option><option>09:00–17:00</option><option>10:00–18:00</option><option>12:00–20:00</option></select></div>
+    </div>
+    <div class="form-group"><label>Product / Campaign</label><select id="bk-product"><option>Aqua Body Mist — Launch</option><option>Rose Glow Serum — Sampling</option><option>Summer Glow Kit — Bundle Promo</option></select></div>
+    <div class="form-group"><label>Notes for Promoter</label><textarea id="bk-notes" placeholder="Special instructions…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-booking')">Cancel</button>
+      <button class="btn btn-accent" onclick="createBooking()">Send Booking →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-feedback">
+  <div class="modal">
+    <h2>📝 Submit Shift Report</h2>
+    <div class="form-group"><label>Customer Responses</label><textarea placeholder="How did customers respond to the product?"></textarea></div>
+    <div class="form-group"><label>Sales Observations</label><textarea placeholder="Estimated units sold or sampled…"></textarea></div>
+    <div class="form-group"><label>Stock Issues</label><textarea placeholder="Was stock sufficient? Anything running low?"></textarea></div>
+    <div class="form-group"><label>Challenges Experienced</label><textarea placeholder="Any issues during the activation?"></textarea></div>
+    <div class="form-group"><label>Overall Rating</label><select><option>⭐⭐⭐⭐⭐ Excellent</option><option>⭐⭐⭐⭐ Good</option><option>⭐⭐⭐ Average</option><option>⭐⭐ Below Average</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-feedback')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitFeedback()">Submit Report →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-invoice">
+  <div class="modal">
+    <h2>🧾 Create Invoice</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Client / Store</label><input type="text" placeholder="Clicks Gateway"></div>
+      <div class="form-group"><label>Invoice #</label><input type="text" placeholder="INV-2025-089"></div>
+    </div>
+    <div class="form-group"><label>Service Description</label><input type="text" placeholder="In-store promotion activation – 8 hours"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Amount (ZAR)</label><input type="number" placeholder="520.00"></div>
+      <div class="form-group"><label>Date</label><input type="date"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-invoice')">Cancel</button>
+      <button class="btn btn-accent" onclick="createInvoice()">Generate Invoice →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-decline">
+  <div class="modal" style="max-width:420px">
+    <h2>❌ Decline Application</h2>
+    <div class="form-group"><label>Reason</label><select id="decline-reason"><option>No vacancies in requested region</option><option>Incomplete or insufficient application</option><option>Does not meet minimum requirements</option><option>Position filled by another candidate</option><option>Other</option></select></div>
+    <div class="form-group"><label>Additional Notes (optional)</label><textarea id="decline-notes" placeholder="Internal notes…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-decline')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDecline()">Confirm Decline</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-product">
+  <div class="modal">
+    <h2>🆕 Add Product / Campaign</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Product Name</label><input type="text" id="np-name" placeholder="e.g. Vitamin C Brightener"></div>
+      <div class="form-group"><label>SKU</label><input type="text" id="np-sku" placeholder="e.g. OZ-007"></div>
+    </div>
+    <div class="form-group"><label>Description / Talking Points</label><textarea id="np-desc" placeholder="Key benefits and what promoters should highlight to customers…"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>Category</label><select id="np-cat"><option>Body Care</option><option>Skincare</option><option>Hair Care</option><option>Fragrance</option><option>Gift Set / Bundle</option></select></div>
+      <div class="form-group"><label>Status</label><select id="np-status"><option value="active">Active — Available to book</option><option value="draft">Draft — Not yet active</option></select></div>
+    </div>
+    <div class="form-group"><label>Barcode (optional)</label><input type="text" id="np-barcode" placeholder="8901234567890"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-product')">Cancel</button>
+      <button class="btn btn-accent" onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chatbot -->
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()">
+  💬<span class="chat-badge" id="chat-badge" style="display:none">1</span>
+</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="ch-avatar">🤖</div>
+    <div><div class="ch-name">Ozone Assistant</div><div class="ch-status">● Online</div></div>
+    <button class="ch-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-quick-replies" id="chat-qr"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// =====================================================
+//  OZONE PROMOTIONS MANAGEMENT SYSTEM
+//  Open-source friendly — all config lives in SETTINGS
+// =====================================================
+
+// ===== CORE DATA =====
+const USERS = {
+  manager: { name:'Nomsa Khumalo', role:'manager', initials:'NK' },
+  promoter: { name:'Zanele Dlamini', role:'promoter', initials:'ZD' }
+};
+
+let SETTINGS = {
+  // Business
+  companyName: 'Ozone Beauty Promotions',
+  companyEmail: 'ops@ozone.co.za',
+  companyPhone: '+27 31 000 1234',
+  vatNumber: '4123456789',
+  // Pay
+  hourlyRate: 65,
+  shiftHours: 8,
+  overtimeMultiplier: 1.5,
+  paymentTermsDays: 5,
+  currency: 'ZAR',
+  currencySymbol: 'R',
+  // Operations
+  minPhotosPerShift: 10,
+  maxPhotosPerShift: 30,
+  lateCheckinThresholdMins: 30,
+  checkinRadiusMeters: 200,
+  // Notifications
+  notifyNewApplication: true,
+  notifyBookingResponse: true,
+  notifyLowStock: true,
+  notifyInvoiceOverdue: true,
+  notifyLateCheckin: false,
+  notifyDailyReport: true,
+  lowStockThresholdPct: 20,
+  invoiceOverdueDays: 7,
+  // Appearance
+  accentColor: '#00d4ff',
+  brandName: 'OZONE',
+  // System
+  allowPromoterSelfAssign: false,
+  requireFeedbackBeforeCheckout: true,
+  autoGenerateInvoices: false,
+  enableGPSVerification: true,
+  enableQRCheckin: true,
+  enableChatbot: true,
+  defaultShiftStart: '09:00',
+  applicationReviewDays: 3,
+  maxBookingsPerPromoterPerWeek: 5,
+  invoicePrefix: 'INV-2025-',
+  taxRate: 15,
+  showEarningsToPromoter: true,
+  requireManagerApproval: true,
+  // Stores
+  stores: ['Clicks — Gateway','Checkers — La Lucia','Dis-Chem — Pavilion','Pick n Pay — Musgrave','Clicks — Westville'],
+  regions: ['KwaZulu-Natal','Gauteng','Western Cape','Eastern Cape'],
+};
+
+let PRODUCTS = [
+  { id:'P001', name:'Aqua Body Mist 200ml', sku:'OZ-001', category:'Body Care', desc:'Lightweight, long-lasting fragrance mist. Key talking points: 200ml size, affordable luxury, 8-hour scent longevity.', barcode:'8901234567890', status:'active' },
+  { id:'P002', name:'Rose Glow Serum 30ml', sku:'OZ-002', category:'Skincare', desc:'Vitamin C and rosehip blend. Key talking points: brightening, anti-aging, suitable for all skin types.', barcode:'8901234567891', status:'active' },
+];
+
+const BOOKINGS = [
+  { id:'B001', promoter:'Zanele Dlamini', store:'Clicks — Gateway', date:'2025-06-10', shift:'09:00–17:00', product:'Aqua Body Mist 200ml', status:'confirmed', notes:'Focus on sampling.' },
+  { id:'B002', promoter:'Sipho Mokoena', store:'Dis-Chem — Pavilion', date:'2025-06-11', shift:'10:00–18:00', product:'Aqua Body Mist 200ml', status:'pending', notes:'' },
+  { id:'B003', promoter:'Ayanda Nkosi', store:'Checkers — La Lucia', date:'2025-05-22', shift:'08:00–16:00', product:'Rose Glow Serum 30ml', status:'declined', notes:'Stock check first.' },
+  { id:'B004', promoter:'Thandeka Zulu', store:'Pick n Pay — Musgrave', date:'2025-06-14', shift:'09:00–17:00', product:'Aqua Body Mist 200ml', status:'confirmed', notes:'' },
+  { id:'B005', promoter:'Zanele Dlamini', store:'Clicks — Westville', date:'2025-06-17', shift:'10:00–18:00', product:'Rose Glow Serum 30ml', status:'pending', notes:'' },
+  { id:'B006', promoter:'Sipho Mokoena', store:'Clicks — Gateway', date:'2025-05-28', shift:'09:00–17:00', product:'Aqua Body Mist 200ml', status:'confirmed', notes:'' },
+  { id:'B007', promoter:'Ayanda Nkosi', store:'Pick n Pay — Musgrave', date:'2025-05-15', shift:'09:00–17:00', product:'Aqua Body Mist 200ml', status:'confirmed', notes:'' },
+];
+
+const ATTENDANCE = [
+  { promoter:'Zanele Dlamini', store:'Clicks — Gateway', date:'2025-06-03', checkin:'09:02', checkout:'17:05', gps:'-29.7311, 31.0428', device:'DEV-0042', photos:12, status:'complete' },
+  { promoter:'Sipho Mokoena', store:'Dis-Chem — Pavilion', date:'2025-06-03', checkin:'10:08', checkout:'18:00', gps:'-29.8316, 30.8974', device:'DEV-0031', photos:10, status:'complete' },
+  { promoter:'Ayanda Nkosi', store:'Checkers — La Lucia', date:'2025-06-02', checkin:'08:15', checkout:'15:50', gps:'-29.7506, 31.0643', device:'DEV-0055', photos:8, status:'incomplete' },
+  { promoter:'Thandeka Zulu', store:'Pick n Pay — Musgrave', date:'2025-06-02', checkin:'09:00', checkout:'17:00', gps:'-29.8490, 31.0055', device:'DEV-0067', photos:11, status:'complete' },
+  { promoter:'Zanele Dlamini', store:'Clicks — Westville', date:'2025-05-28', checkin:'10:00', checkout:'18:00', gps:'-29.7800, 30.9100', device:'DEV-0042', photos:13, status:'complete' },
+  { promoter:'Sipho Mokoena', store:'Clicks — Gateway', date:'2025-05-28', checkin:'09:05', checkout:'17:10', gps:'-29.7311, 31.0428', device:'DEV-0031', photos:11, status:'complete' },
+  { promoter:'Ayanda Nkosi', store:'Pick n Pay — Musgrave', date:'2025-05-15', checkin:'09:00', checkout:'17:00', gps:'-29.8490, 31.0055', device:'DEV-0055', photos:10, status:'complete' },
+];
+
+const STOCK = [
+  { sku:'OZ-001', product:'Aqua Body Mist 200ml', store:'Clicks — Gateway', qty:42, par:60, barcode:'8901234567890' },
+  { sku:'OZ-001', product:'Aqua Body Mist 200ml', store:'Dis-Chem — Pavilion', qty:25, par:50, barcode:'8901234567890' },
+  { sku:'OZ-001', product:'Aqua Body Mist 200ml', store:'Checkers — La Lucia', qty:3, par:30, barcode:'8901234567890' },
+  { sku:'OZ-001', product:'Aqua Body Mist 200ml', store:'Pick n Pay — Musgrave', qty:17, par:35, barcode:'8901234567890' },
+  { sku:'OZ-002', product:'Rose Glow Serum 30ml', store:'Clicks — Gateway', qty:18, par:40, barcode:'8901234567891' },
+  { sku:'OZ-002', product:'Rose Glow Serum 30ml', store:'Dis-Chem — Pavilion', qty:22, par:40, barcode:'8901234567891' },
+];
+
+const REPORTS = [
+  { promoter:'Zanele Dlamini', store:'Clicks — Gateway', date:'2025-06-03', rating:'Excellent', customers:'Very positive — many repeat customers observed.', sales:'~45 units sampled, 12 confirmed purchases', issues:'None' },
+  { promoter:'Sipho Mokoena', store:'Dis-Chem — Pavilion', date:'2025-06-03', rating:'Good', customers:'Interested but price-sensitive.', sales:'~30 samples, 8 purchases', issues:'Ran low on testers' },
+  { promoter:'Thandeka Zulu', store:'Pick n Pay — Musgrave', date:'2025-06-02', rating:'Good', customers:'Good foot traffic, younger demographic', sales:'~50 samples distributed', issues:'Signage unclear' },
+  { promoter:'Zanele Dlamini', store:'Clicks — Westville', date:'2025-05-28', rating:'Excellent', customers:'Highly engaged, asked many product questions.', sales:'~38 samples, 15 purchases', issues:'None' },
+  { promoter:'Sipho Mokoena', store:'Clicks — Gateway', date:'2025-05-28', rating:'Good', customers:'Mixed response, weekend crowd was good.', sales:'~40 samples, 10 purchases', issues:'None' },
+];
+
+const INVOICES = [
+  { id:'INV-2025-081', client:'Clicks Gateway', service:'Activation — 8hrs', amount:3500, date:'2025-06-03', status:'paid' },
+  { id:'INV-2025-082', client:'Dis-Chem Pavilion', service:'Activation — 8hrs', amount:3500, date:'2025-06-03', status:'paid' },
+  { id:'INV-2025-083', client:'Checkers La Lucia', service:'Activation — 6hrs', amount:2800, date:'2025-06-02', status:'outstanding' },
+  { id:'INV-2025-084', client:'Pick n Pay Musgrave', service:'Activation — 8hrs + Stock Check', amount:4200, date:'2025-06-02', status:'paid' },
+  { id:'INV-2025-085', client:'Clicks Gateway', service:'Activation — 8hrs', amount:3500, date:'2025-05-28', status:'outstanding' },
+  { id:'INV-2025-086', client:'Dis-Chem Pavilion', service:'Activation — 8hrs', amount:3500, date:'2025-05-21', status:'paid' },
+  { id:'INV-2025-087', client:'Pick n Pay Musgrave', service:'Activation — 8hrs', amount:3500, date:'2025-05-14', status:'paid' },
+];
+
+const PROMOTERS = [
+  { name:'Zanele Dlamini', email:'zanele@ozone.co.za', phone:'+27 82 345 6789', device:'DEV-0042', region:'KwaZulu-Natal', status:'active', shifts:24 },
+  { name:'Sipho Mokoena', email:'sipho@ozone.co.za', phone:'+27 73 456 7890', device:'DEV-0031', region:'KwaZulu-Natal', status:'active', shifts:18 },
+  { name:'Ayanda Nkosi', email:'ayanda@ozone.co.za', phone:'+27 84 567 8901', device:'DEV-0055', region:'Gauteng', status:'active', shifts:31 },
+  { name:'Thandeka Zulu', email:'thandeka@ozone.co.za', phone:'+27 79 678 9012', device:'DEV-0067', region:'KwaZulu-Natal', status:'active', shifts:15 },
+  { name:'Bongani Cele', email:'bongani@ozone.co.za', phone:'+27 61 789 0123', device:'DEV-0078', region:'Western Cape', status:'inactive', shifts:9 },
+];
+
+let APPLICATIONS = [
+  { id:'APP-001', firstName:'Lerato', lastName:'Mokoena', email:'lerato.mokoena@gmail.com', phone:'+27 72 100 2233', idNumber:'9504125800082', region:'Gauteng', experience:'1–2 years', motivation:'I have worked as a beauty advisor at Edgars for 14 months, building strong product knowledge and customer skills. I am passionate about skincare and would love to represent Ozone.', appliedDate:'2025-06-01', status:'pending' },
+  { id:'APP-002', firstName:'Nhlanhla', lastName:'Sithole', email:'nhlanhla.s@outlook.com', phone:'+27 63 445 7788', idNumber:'0001015800086', region:'KwaZulu-Natal', experience:'No experience (willing to learn)', motivation:'I am energetic and eager to break into the beauty industry. I have completed a customer service short course and am ready to fully commit to Ozone brand values.', appliedDate:'2025-06-02', status:'pending' },
+  { id:'APP-003', firstName:'Chantelle', lastName:'Davids', email:'chantelledavids@webmail.co.za', phone:'+27 84 991 0023', idNumber:'9811155800087', region:'Western Cape', experience:'3+ years', motivation:'I spent three years promoting a competitor beauty brand across Cape Town, consistently exceeding sampling targets.', appliedDate:'2025-05-30', status:'approved' },
+  { id:'APP-004', firstName:'Thabo', lastName:'Nkosi', email:'thabo.nkosi@gmail.com', phone:'+27 71 556 8811', idNumber:'9207125800081', region:'KwaZulu-Natal', experience:'Less than 1 year', motivation:'I completed a retail internship recently and am looking for part-time brand promotion work. Flexible availability.', appliedDate:'2025-05-28', status:'declined' },
+];
+
+let currentDeclineId = null;
+let currentApplicationFilter = 'pending';
+let currentUser = null;
+let shiftState = { checkedIn:false, photos:0, feedbackSubmitted:false };
+let biCharts = {};
+
+// ===== PERIOD FILTER HELPERS =====
+function getPeriod(page) { return window['period_'+page] || 'month'; }
+function setPeriod(page, val) { window['period_'+page] = val; }
+
+function filterByPeriod(arr, dateField, period) {
+  const now = new Date('2025-06-09');
+  return arr.filter(item => {
+    const d = new Date(item[dateField]);
+    if (period === 'day') {
+      return d.toDateString() === now.toDateString();
+    } else if (period === 'week') {
+      const weekAgo = new Date(now); weekAgo.setDate(now.getDate()-7);
+      return d >= weekAgo && d <= now;
+    } else if (period === 'month') {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+}
+
+function periodTabsHtml(page) {
+  const p = getPeriod(page);
+  return `<div class="period-tabs">
+    <button class="period-tab${p==='day'?' active':''}" onclick="setPeriod('${page}','day');showPage('${page}')">Day</button>
+    <button class="period-tab${p==='week'?' active':''}" onclick="setPeriod('${page}','week');showPage('${page}')">Week</button>
+    <button class="period-tab${p==='month'?' active':''}" onclick="setPeriod('${page}','month');showPage('${page}')">Month</button>
+  </div>`;
+}
+
+// ===== HELPERS =====
+function getPendingCount() { return APPLICATIONS.filter(a=>a.status==='pending').length; }
+function shiftPay() { return SETTINGS.hourlyRate * SETTINGS.shiftHours; }
+function sym() { return SETTINGS.currencySymbol; }
+
+function showScreen(id) {
+  document.querySelectorAll('.auth-screen,.auth-screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
+  document.getElementById('landing-screen') && (document.getElementById('landing-screen').classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('active'); }
+  const chatFab = document.getElementById('chat-fab');
+  chatFab.style.display = (id==='login-screen'||id==='signup-step1'||id==='signup-step2') ? 'flex' : 'none';
+}
+
+// ===== SIGNUP =====
+function submitApplication() {
+  const firstName = document.getElementById('reg-firstname').value.trim();
+  const lastName  = document.getElementById('reg-lastname').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const password  = document.getElementById('reg-password').value;
+  const confirm   = document.getElementById('reg-confirm').value;
+  if (!firstName||!lastName||!email) { toast('Please fill in all required fields'); return; }
+  if (password.length < 8) { toast('Password must be at least 8 characters'); return; }
+  if (password !== confirm) { toast('Passwords do not match'); return; }
+  APPLICATIONS.push({ id:'APP-'+String(APPLICATIONS.length+1).padStart(3,'0'), firstName, lastName, email,
+    phone:document.getElementById('reg-phone').value, idNumber:document.getElementById('reg-id').value,
+    region:document.getElementById('reg-region').value, experience:document.getElementById('reg-exp').value,
+    motivation:document.getElementById('reg-motivation').value,
+    appliedDate:new Date().toISOString().split('T')[0], status:'pending' });
+  document.getElementById('confirm-email-display').textContent = email;
+  showScreen('signup-confirm');
+}
+
+// ===== LOGIN / LOGOUT =====
+function doLogin(role) {
+  currentUser = USERS[role];
+  ['login-screen','landing-screen','signup-step1','signup-step2','signup-confirm'].forEach(id=>{
+    const el=document.getElementById(id); if(el){el.classList.remove('active');el.style.display='none';}
+  });
+  document.getElementById('app').style.display='block';
+  const av=document.getElementById('sidebar-avatar');
+  av.textContent=currentUser.initials; av.className='user-avatar avatar-'+role;
+  document.getElementById('sidebar-name').textContent=currentUser.name;
+  const rb=document.getElementById('sidebar-role-badge');
+  rb.textContent=role==='manager'?'Manager':'Promoter'; rb.className='role-badge rb-'+role;
+  buildNav(role); showPage('dashboard');
+  const chatFab=document.getElementById('chat-fab'); chatFab.style.display='flex';
+  initChat(role);
+  if(role==='promoter'){ document.getElementById('chat-badge').style.display='flex'; }
+}
+function doLoginFromForm() { doLogin(document.getElementById('login-role').value); }
+function doLogout() {
+  document.getElementById('app').style.display='none';
+  ['login-screen','landing-screen','signup-step1','signup-step2','signup-confirm'].forEach(id=>{
+    const el=document.getElementById(id); if(el){el.style.display=''; el.classList.remove('active');}
+  });
+  document.getElementById('landing-screen').classList.add('active');
+  document.getElementById('nav-menu').innerHTML='';
+  currentUser=null; shiftState={checkedIn:false,photos:0,feedbackSubmitted:false};
+  Object.values(biCharts).forEach(c=>c.destroy&&c.destroy()); biCharts={};
+  document.getElementById('chat-fab').style.display='none';
+}
+
+// ===== NAV =====
+const NAV_CONFIG = {
+  manager:[
+    {section:'Overview',items:[{id:'dashboard',icon:'📊',label:'Dashboard'},{id:'bi',icon:'📈',label:'Business Intelligence'}]},
+    {section:'Operations',items:[
+      {id:'bookings',icon:'📅',label:'Bookings'},
+      {id:'attendance',icon:'📍',label:'Attendance'},
+      {id:'reports',icon:'📝',label:'Reports'},
+      {id:'photos',icon:'📷',label:'Photos'},
+      {id:'storeqr',icon:'📲',label:'Store QR Codes'},
+    ]},
+    {section:'Inventory & Finance',items:[
+      {id:'stock',icon:'📦',label:'Stock'},
+      {id:'invoices',icon:'🧾',label:'Invoices'},
+    ]},
+    {section:'Team',items:[
+      {id:'promoters',icon:'👥',label:'Promoters'},
+      {id:'applications',icon:'📋',label:'Applications',dynamicBadge:true},
+    ]},
+    {section:'Catalogue',items:[{id:'products',icon:'🧴',label:'Products'}]},
+    {section:'System',items:[{id:'settings',icon:'⚙️',label:'Settings'}]},
+  ],
+  promoter:[
+    {section:'My Work',items:[
+      {id:'dashboard',icon:'📊',label:'Dashboard'},
+      {id:'mybookings',icon:'📅',label:'My Bookings',dynamicBadgePending:true},
+      {id:'myshift',icon:'⚡',label:'Active Shift'},
+    ]},
+    {section:'Earnings',items:[{id:'mypay',icon:'💰',label:'My Pay'}]},
+    {section:'Submissions',items:[
+      {id:'reports',icon:'📝',label:'My Reports'},
+      {id:'photos',icon:'📷',label:'My Photos'},
+    ]},
+  ]
+};
+
+function buildNav(role){
+  const cfg=NAV_CONFIG[role]||[];
+  let html='';
+  cfg.forEach(sec=>{
+    html+=`<div class="nav-section">${sec.section}</div>`;
+    sec.items.forEach(item=>{
+      let badge='';
+      if(item.dynamicBadge){const c=getPendingCount();if(c>0)badge=`<span class="nbadge nbadge-red">${c}</span>`;}
+      else if(item.dynamicBadgePending){const c=BOOKINGS.filter(b=>b.promoter==='Zanele Dlamini'&&b.status==='pending').length;if(c>0)badge=`<span class="nbadge nbadge-amber">${c}</span>`;}
+      html+=`<div class="nav-item" id="nav-${item.id}" onclick="showPage('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span>${badge}</div>`;
+    });
+  });
+  document.getElementById('nav-menu').innerHTML=html;
+}
+
+function showPage(id){
+  Object.values(biCharts).forEach(c=>c&&c.destroy&&c.destroy()); biCharts={};
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const page=document.getElementById('page-'+id), nav=document.getElementById('nav-'+id);
+  if(page)page.classList.add('active'); if(nav)nav.classList.add('active');
+  const role=currentUser.role;
+  const renderers={
+    dashboard:()=>renderDashboard(role),bookings:()=>renderBookings(),attendance:()=>renderAttendance(),
+    stock:()=>renderStock(),reports:()=>renderReports(),photos:()=>renderPhotos(),
+    invoices:()=>renderInvoices(),promoters:()=>renderPromoters(),applications:()=>renderApplications(),
+    products:()=>renderProducts(),bi:()=>renderBI(),settings:()=>renderSettings(),storeqr:()=>renderStoreQR(),
+    mybookings:()=>renderMyBookings(),myshift:()=>renderMyShift(),mypay:()=>renderMyPay()
+  };
+  renderers[id]&&renderers[id]();
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(role){
+  const el=document.getElementById('page-dashboard');
+  if(role==='manager'){
+    const p=getPendingCount();
+    const outstanding=INVOICES.filter(i=>i.status==='outstanding').reduce((s,i)=>s+i.amount,0);
+    el.innerHTML=`
+    <div class="page-header"><div class="page-header-left"><h1>Welcome, Nomsa 👋</h1><p>${new Date().toLocaleDateString('en-ZA',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p></div></div>
+    <div class="stats-grid">
+      <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Active Bookings</div><div class="stat-value">12</div><div class="stat-sub">3 this week</div><div class="stat-icon">📅</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Promoters Active</div><div class="stat-value">4</div><div class="stat-sub">1 inactive</div><div class="stat-icon">👥</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Low Stock Items</div><div class="stat-value">1</div><div class="stat-sub">Checkers La Lucia</div><div class="stat-icon">📦</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-accent2)"><div class="stat-label">Pending Applications</div><div class="stat-value" style="color:${p>0?'var(--oz-accent3)':'inherit'}">${p}</div><div class="stat-sub"><a onclick="showPage('applications')" style="color:var(--oz-accent);cursor:pointer;font-size:.72rem">Review now →</a></div><div class="stat-icon">📋</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Revenue This Month</div><div class="stat-value" style="font-size:1.45rem">${sym()}17k</div><div class="stat-sub">${sym()}${outstanding.toLocaleString()} outstanding</div><div class="stat-icon">💰</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Pay Rate</div><div class="stat-value" style="font-size:1.45rem">${sym()}${SETTINGS.hourlyRate}</div><div class="stat-sub">per hour · ${sym()}${shiftPay()} per shift</div><div class="stat-icon">⚙️</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Recent Activity</div>
+        <div class="timeline">
+          <div class="timeline-item"><div class="timeline-time">Today 09:02</div><div style="font-size:.84rem">Zanele Dlamini checked in at Clicks Gateway</div></div>
+          <div class="timeline-item"><div class="timeline-time">Today 08:45</div><div style="font-size:.84rem">Booking B005 sent to Zanele Dlamini</div></div>
+          <div class="timeline-item"><div class="timeline-time">Yesterday 17:05</div><div style="font-size:.84rem">Sipho Mokoena submitted feedback report</div></div>
+          <div class="timeline-item"><div class="timeline-time">Yesterday 16:00</div><div style="font-size:.84rem">INV-2025-082 marked paid — ${sym()}3,500</div></div>
+          <div class="timeline-item"><div class="timeline-time">2 days ago</div><div style="font-size:.84rem">New application from Lerato Mokoena</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Needs Attention</div>
+        <div class="notif-item pending"><div class="notif-dot" style="background:var(--oz-accent3)"></div><div><b>Booking Response Overdue</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Sipho Mokoena hasn't responded to B002</span></div></div>
+        <div class="notif-item alert"><div class="notif-dot" style="background:var(--oz-red)"></div><div><b>Critical Stock</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Aqua Mist at 10% at Checkers La Lucia</span></div></div>
+        <div class="notif-item pending"><div class="notif-dot" style="background:var(--oz-accent2)"></div><div><b>${p} Pending Application${p!==1?'s':''}</b><br><span style="font-size:.78rem;color:var(--oz-muted)"><a onclick="showPage('applications')" style="color:var(--oz-accent);cursor:pointer">Review now →</a></span></div></div>
+        <div class="notif-item"><div class="notif-dot"></div><div><b>Invoice Overdue</b><br><span style="font-size:.78rem;color:var(--oz-muted)">INV-2025-085 — ${sym()}3,500 — Clicks Gateway</span></div></div>
+      </div>
+    </div>`;
+  } else {
+    el.innerHTML=`
+    <div class="page-header"><div class="page-header-left"><h1>Good morning, Zanele ☀️</h1><p>Promoter Portal · ${new Date().toLocaleDateString('en-ZA',{weekday:'long',month:'long',day:'numeric'})}</p></div></div>
+    <div class="welcome-banner">
+      <div><h2>You have 1 pending booking 📬</h2><p>Next confirmed shift: 10 June at Clicks Gateway. Check in starts at 09:00.</p></div>
+      <button class="checkin-btn" onclick="showPage('myshift')">⚡ Go to Active Shift</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Upcoming Shifts</div><div class="stat-value">2</div><div class="stat-sub">Next: 10 June</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Total Shifts Done</div><div class="stat-value">24</div><div class="stat-sub">This year</div></div>
+      <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Pending Response</div><div class="stat-value">1</div><div class="stat-sub"><a onclick="showPage('mybookings')" style="color:var(--oz-accent);cursor:pointer;font-size:.72rem">View booking →</a></div></div>
+      ${SETTINGS.showEarningsToPromoter?`<div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Earnings This Month</div><div class="stat-value" style="font-size:1.4rem">${sym()}${(6*shiftPay()).toLocaleString()}</div><div class="stat-sub">6 shifts × ${sym()}${shiftPay()}</div></div>`:''}
+    </div>
+    <div class="card"><div class="card-title">Notifications</div>
+      <div class="notif-item pending"><div class="notif-dot" style="background:var(--oz-accent3)"></div><div><b>New Booking Request</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Clicks Westville — 17 June — ${sym()}${shiftPay()} for 8hrs — <a onclick="showPage('mybookings')" style="color:var(--oz-accent);cursor:pointer">Accept or Decline</a></span></div></div>
+      <div class="notif-item"><div class="notif-dot"></div><div><b>Booking Confirmed</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Clicks Gateway 10 June — Aqua Body Mist</span></div></div>
+    </div>`;
+  }
+}
+
+// ===== BOOKINGS =====
+function renderBookings(){
+  const period=getPeriod('bookings');
+  const filtered=filterByPeriod(BOOKINGS,'date',period);
+  const search=(document.getElementById('bk-search')||{}).value||'';
+  const statusFilter=(document.getElementById('bk-status-filter')||{}).value||'all';
+  let data=filtered;
+  if(search)data=data.filter(b=>b.promoter.toLowerCase().includes(search.toLowerCase())||b.store.toLowerCase().includes(search.toLowerCase()));
+  if(statusFilter!=='all')data=data.filter(b=>b.status===statusFilter);
+
+  document.getElementById('page-bookings').innerHTML=`
+  <div class="page-header">
+    <div class="page-header-left"><h1>Bookings</h1><p>Manage promoter assignments and activation events</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="openModal('modal-add-booking')">+ New Booking</button></div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="bk-search" placeholder="🔍 Search promoter or store…" value="${search}" oninput="renderBookings()">
+    <select id="bk-status-filter" onchange="renderBookings()">
+      <option value="all"${statusFilter==='all'?' selected':''}>All Status</option>
+      <option value="pending"${statusFilter==='pending'?' selected':''}>Pending</option>
+      <option value="confirmed"${statusFilter==='confirmed'?' selected':''}>Confirmed</option>
+      <option value="declined"${statusFilter==='declined'?' selected':''}>Declined</option>
+    </select>
+    ${periodTabsHtml('bookings')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} result${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Ref</th><th>Promoter</th><th>Store</th><th>Date</th><th>Shift</th><th>Product</th><th>Pay</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${data.length?data.map(b=>`<tr>
+    <td><code style="font-size:.74rem;color:var(--oz-accent)">${b.id}</code></td>
+    <td>${b.promoter}</td><td>${b.store}</td><td>${b.date}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${b.shift}</td>
+    <td style="font-size:.8rem">${b.product}</td>
+    <td><span class="pay-badge">${sym()}${shiftPay()}</span></td>
+    <td><span class="badge ${b.status==='confirmed'?'badge-green':b.status==='declined'?'badge-red':'badge-amber'}">${b.status}</span></td>
+    <td>${b.status==='pending'?`<button class="btn btn-sm btn-danger" onclick="toast('Booking cancelled')">Cancel</button>`:''}
+        ${b.status==='confirmed'?`<span style="font-size:.78rem;color:var(--oz-dim)">Locked</span>`:''}</td>
+  </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--oz-dim);padding:2rem">No bookings found for this period</td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+// ===== ATTENDANCE =====
+function renderAttendance(){
+  const period=getPeriod('attendance');
+  const filtered=filterByPeriod(ATTENDANCE,'date',period);
+  const search=(document.getElementById('att-search')||{}).value||'';
+  const statusF=(document.getElementById('att-status')||{}).value||'all';
+  let data=filtered;
+  if(search)data=data.filter(a=>a.promoter.toLowerCase().includes(search.toLowerCase())||a.store.toLowerCase().includes(search.toLowerCase()));
+  if(statusF!=='all')data=data.filter(a=>a.status===statusF);
+
+  document.getElementById('page-attendance').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>Attendance &amp; Check-in</h1><p>GPS-verified check-in records</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="att-search" placeholder="🔍 Search promoter or store…" value="${search}" oninput="renderAttendance()">
+    <select id="att-status" onchange="renderAttendance()">
+      <option value="all"${statusF==='all'?' selected':''}>All Status</option>
+      <option value="complete"${statusF==='complete'?' selected':''}>Complete</option>
+      <option value="incomplete"${statusF==='incomplete'?' selected':''}>Incomplete</option>
+    </select>
+    ${periodTabsHtml('attendance')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} record${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card" style="margin-bottom:1rem"><div class="table-wrap"><table><thead><tr><th>Promoter</th><th>Store</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>GPS</th><th>Device</th><th>Photos</th><th>Status</th></tr></thead><tbody>
+  ${data.length?data.map(a=>`<tr><td>${a.promoter}</td><td>${a.store}</td><td>${a.date}</td>
+    <td style="color:var(--oz-green)">${a.checkin}</td><td style="color:var(--oz-muted)">${a.checkout}</td>
+    <td><code style="font-size:.7rem;color:var(--oz-accent)">${a.gps}</code></td>
+    <td><code style="font-size:.7rem;color:var(--oz-dim)">${a.device}</code></td>
+    <td><span class="badge ${a.photos>=SETTINGS.minPhotosPerShift?'badge-green':'badge-amber'}">${a.photos}/${SETTINGS.minPhotosPerShift}</span></td>
+    <td><span class="badge ${a.status==='complete'?'badge-green':'badge-amber'}">${a.status}</span></td></tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--oz-dim);padding:2rem">No records for this period</td></tr>`}
+  </tbody></table></div></div>
+  <div class="card"><div class="card-title">GPS Check-in Map</div><div class="map-placeholder"><span style="font-size:1.8rem">🗺️</span><span style="font-size:.87rem">GPS coordinates logged for all check-ins</span><span style="font-size:.73rem;color:var(--oz-dim)">Durban area · ${data.length} locations tracked</span><span style="font-size:.7rem;color:var(--oz-dim);margin-top:4px">IoT QR integration — coming soon</span></div></div>`;
+}
+
+// ===== STOCK =====
+function renderStock(){
+  const search=(document.getElementById('st-search')||{}).value||'';
+  const storeF=(document.getElementById('st-store')||{}).value||'all';
+  let data=STOCK;
+  if(search)data=data.filter(s=>s.product.toLowerCase().includes(search.toLowerCase())||s.store.toLowerCase().includes(search.toLowerCase()));
+  if(storeF!=='all')data=data.filter(s=>s.store===storeF);
+
+  document.getElementById('page-stock').innerHTML=`
+  <div class="page-header">
+    <div class="page-header-left"><h1>Stock Management</h1><p>Track inventory across all stores</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="toast('Barcode scanner activated')">🔲 Scan Barcode</button></div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="st-search" placeholder="🔍 Search product or store…" value="${search}" oninput="renderStock()">
+    <select id="st-store" onchange="renderStock()">
+      <option value="all"${storeF==='all'?' selected':''}>All Stores</option>
+      ${SETTINGS.stores.map(s=>`<option${storeF===s?' selected':''}>${s}</option>`).join('')}
+    </select>
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} items</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Product</th><th>Store</th><th>Level</th><th>Qty / PAR</th><th>Status</th><th>Barcode</th><th>Actions</th></tr></thead><tbody>
+  ${data.map(s=>{
+    const p=Math.round((s.qty/s.par)*100);
+    const c=p>60?'fill-high':p>SETTINGS.lowStockThresholdPct?'fill-med':'fill-low';
+    const b=p>60?'badge-green':p>SETTINGS.lowStockThresholdPct?'badge-amber':'badge-red';
+    return `<tr><td><code style="font-size:.73rem;color:var(--oz-dim)">${s.sku}</code></td>
+    <td style="font-weight:500">${s.product}</td><td>${s.store}</td>
+    <td><div class="stock-level"><div class="stock-bar"><div class="stock-fill ${c}" style="width:${p}%"></div></div><span style="font-size:.72rem;color:var(--oz-muted)">${p}%</span></div></td>
+    <td><span class="badge ${b}">${s.qty} / ${s.par}</span></td>
+    <td>${p<=SETTINGS.lowStockThresholdPct?`<span class="badge badge-red">Low Stock</span>`:`<span class="badge badge-green">OK</span>`}</td>
+    <td><code style="font-size:.68rem;color:var(--oz-dim)">${s.barcode}</code></td>
+    <td><button class="btn btn-sm btn-outline" onclick="toast('Stock updated')">Update</button></td></tr>`;
+  }).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ===== REPORTS =====
+function renderReports(){
+  const period=getPeriod('reports');
+  const filtered=filterByPeriod(REPORTS,'date',period);
+  const search=(document.getElementById('rp-search')||{}).value||'';
+  const promoterF=(document.getElementById('rp-promoter')||{}).value||'all';
+  let data=filtered;
+  if(search)data=data.filter(r=>r.promoter.toLowerCase().includes(search.toLowerCase())||r.store.toLowerCase().includes(search.toLowerCase()));
+  if(promoterF!=='all')data=data.filter(r=>r.promoter===promoterF);
+  const isPromoter=currentUser.role==='promoter';
+  if(isPromoter)data=data.filter(r=>r.promoter==='Zanele Dlamini');
+
+  document.getElementById('page-reports').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>${isPromoter?'My Reports':'Feedback Reports'}</h1><p>Shift reports and performance insights</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="rp-search" placeholder="🔍 Search…" value="${search}" oninput="renderReports()">
+    ${!isPromoter?`<select id="rp-promoter" onchange="renderReports()">
+      <option value="all"${promoterF==='all'?' selected':''}>All Promoters</option>
+      ${PROMOTERS.map(p=>`<option${promoterF===p.name?' selected':''}>${p.name}</option>`).join('')}
+    </select>`:''}
+    ${periodTabsHtml('reports')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} report${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Promoter</th><th>Store</th><th>Date</th><th>Rating</th><th>Customer Feedback</th><th>Sales</th><th>Issues</th><th>Status</th></tr></thead><tbody>
+  ${data.length?data.map(r=>`<tr><td>${r.promoter}</td><td>${r.store}</td><td>${r.date}</td>
+    <td><span class="badge ${r.rating==='Excellent'?'badge-green':r.rating==='Good'?'badge-cyan':'badge-amber'}">${r.rating}</span></td>
+    <td style="font-size:.78rem;max-width:170px;color:var(--oz-muted)">${r.customers}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${r.sales}</td>
+    <td style="font-size:.78rem;color:${r.issues==='None'?'var(--oz-dim)':'var(--oz-orange)'}">${r.issues}</td>
+    <td><span class="badge badge-green">Submitted</span></td></tr>`).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--oz-dim);padding:2rem">No reports for this period</td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+// ===== PHOTOS =====
+function renderPhotos(){
+  const period=getPeriod('photos');
+  const filtered=filterByPeriod(ATTENDANCE,'date',period);
+  let data=currentUser.role==='promoter'?filtered.filter(a=>a.promoter==='Zanele Dlamini'):filtered;
+  const search=(document.getElementById('ph-search')||{}).value||'';
+  if(search)data=data.filter(a=>a.promoter.toLowerCase().includes(search.toLowerCase()));
+
+  document.getElementById('page-photos').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>${currentUser.role==='promoter'?'My Photos':'Interaction Photos'}</h1><p>Customer engagement evidence — min ${SETTINGS.minPhotosPerShift} per shift</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="ph-search" placeholder="🔍 Search promoter…" value="${search}" oninput="renderPhotos()">
+    ${periodTabsHtml('photos')}
+  </div>
+  ${data.length?data.map(a=>`<div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <div><span style="font-weight:600">${a.promoter}</span><span style="color:var(--oz-muted);font-size:.82rem;margin-left:8px">${a.store} · ${a.date}</span></div>
+      <span class="badge ${a.photos>=SETTINGS.minPhotosPerShift?'badge-green':'badge-amber'}">${a.photos} photos</span>
+    </div>
+    <div class="photo-grid">${Array.from({length:SETTINGS.minPhotosPerShift},(_,i)=>`<div class="photo-thumb ${i<a.photos?'filled':''}">${i>=a.photos?'📷':''}</div>`).join('')}</div>
+    ${a.photos<SETTINGS.minPhotosPerShift?`<div style="margin-top:.65rem;font-size:.78rem;color:var(--oz-red)">⚠️ ${SETTINGS.minPhotosPerShift-a.photos} more photos needed</div>`:''}
+  </div>`).join(''):`<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No photo records for this period</div>`}`;
+}
+
+// ===== INVOICES =====
+function renderInvoices(){
+  const period=getPeriod('invoices');
+  const filtered=filterByPeriod(INVOICES,'date',period);
+  const statusF=(document.getElementById('inv-status')||{}).value||'all';
+  let data=filtered;
+  if(statusF!=='all')data=data.filter(i=>i.status===statusF);
+  const total=data.reduce((s,i)=>s+i.amount,0), paid=data.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);
+
+  document.getElementById('page-invoices').innerHTML=`
+  <div class="page-header">
+    <div class="page-header-left"><h1>Invoices</h1><p>Invoice management and generation</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="openModal('modal-invoice')">+ New Invoice</button></div>
+  </div>
+  <div class="filter-bar">
+    <select id="inv-status" onchange="renderInvoices()">
+      <option value="all"${statusF==='all'?' selected':''}>All Status</option>
+      <option value="paid"${statusF==='paid'?' selected':''}>Paid</option>
+      <option value="outstanding"${statusF==='outstanding'?' selected':''}>Outstanding</option>
+    </select>
+    ${periodTabsHtml('invoices')}
+  </div>
+  <div class="stats-grid" style="margin-bottom:1rem">
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Total Invoiced</div><div class="stat-value" style="font-size:1.4rem">${sym()}${total.toLocaleString()}</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Paid</div><div class="stat-value" style="font-size:1.4rem;color:var(--oz-green)">${sym()}${paid.toLocaleString()}</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Outstanding</div><div class="stat-value" style="font-size:1.4rem;color:var(--oz-red)">${sym()}${(total-paid).toLocaleString()}</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Invoice #</th><th>Client</th><th>Service</th><th>Amount</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${data.map(i=>`<tr>
+    <td><code style="color:var(--oz-accent);font-size:.78rem">${i.id}</code></td><td>${i.client}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${i.service}</td><td style="font-weight:600">${sym()}${i.amount.toLocaleString()}</td><td>${i.date}</td>
+    <td><span class="badge ${i.status==='paid'?'badge-green':'badge-red'}">${i.status}</span></td>
+    <td style="display:flex;gap:5px"><button class="btn btn-sm btn-ghost" onclick="toast('PDF downloaded')">⬇ PDF</button>${i.status==='outstanding'?`<button class="btn btn-sm btn-success" onclick="toast('Marked as paid')">Mark Paid</button>`:''}</td>
+  </tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ===== PROMOTERS =====
+function renderPromoters(){
+  const period=getPeriod('promoters');
+  const search=(document.getElementById('pro-search')||{}).value||'';
+  const regionF=(document.getElementById('pro-region')||{}).value||'all';
+  let data=PROMOTERS;
+  if(search)data=data.filter(p=>p.name.toLowerCase().includes(search.toLowerCase())||p.email.toLowerCase().includes(search.toLowerCase()));
+  if(regionF!=='all')data=data.filter(p=>p.region===regionF);
+
+  document.getElementById('page-promoters').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>Promoters</h1><p>Active promoter roster and performance</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="pro-search" placeholder="🔍 Search name or email…" value="${search}" oninput="renderPromoters()">
+    <select id="pro-region" onchange="renderPromoters()">
+      <option value="all"${regionF==='all'?' selected':''}>All Regions</option>
+      ${SETTINGS.regions.map(r=>`<option${regionF===r?' selected':''}>${r}</option>`).join('')}
+    </select>
+    ${periodTabsHtml('promoters')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} promoter${data.length!==1?'s':''}</span>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Device</th><th>Region</th><th>Shifts</th><th>Earnings</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${data.map(p=>`<tr><td style="font-weight:600">${p.name}</td><td style="font-size:.78rem;color:var(--oz-muted)">${p.email}</td><td style="font-size:.78rem">${p.phone}</td>
+    <td><code style="font-size:.7rem;color:var(--oz-dim)">${p.device}</code></td><td>${p.region}</td><td>${p.shifts}</td>
+    <td style="color:var(--oz-green);font-weight:600">${sym()}${(p.shifts*shiftPay()).toLocaleString()}</td>
+    <td><span class="badge ${p.status==='active'?'badge-green':'badge-gray'}">${p.status}</span></td>
+    <td><button class="btn btn-sm btn-outline" onclick="toast('Editing ${p.name}')">Edit</button></td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ===== APPLICATIONS =====
+function filterApplications(val){ currentApplicationFilter=val; renderApplications(); }
+function renderApplications(){
+  const filtered=currentApplicationFilter==='all'?APPLICATIONS:APPLICATIONS.filter(a=>a.status===currentApplicationFilter);
+  const search=(document.getElementById('app-search')||{}).value||'';
+  let data=filtered;
+  if(search)data=data.filter(a=>(a.firstName+' '+a.lastName).toLowerCase().includes(search.toLowerCase()));
+  const counts={pending:APPLICATIONS.filter(a=>a.status==='pending').length,approved:APPLICATIONS.filter(a=>a.status==='approved').length,declined:APPLICATIONS.filter(a=>a.status==='declined').length};
+
+  let html=`
+  <div class="page-header">
+    <div class="page-header-left"><h1>Applications</h1><p>Review, approve or decline promoter applications</p></div>
+    <div class="page-header-actions">
+      <select onchange="filterApplications(this.value)" style="background:var(--oz-surface2);border:1px solid var(--oz-border2);color:var(--oz-text);padding:7px 11px;border-radius:var(--r);font-family:var(--font-b);font-size:.82rem;outline:none">
+        <option value="pending"${currentApplicationFilter==='pending'?' selected':''}>Pending Review</option>
+        <option value="approved"${currentApplicationFilter==='approved'?' selected':''}>Approved</option>
+        <option value="declined"${currentApplicationFilter==='declined'?' selected':''}>Declined</option>
+        <option value="all"${currentApplicationFilter==='all'?' selected':''}>All</option>
+      </select>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="app-search" placeholder="🔍 Search applicant name…" value="${search}" oninput="renderApplications()">
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} application${data.length!==1?'s':''}</span>
+  </div>
+  <div class="stats-grid" style="margin-bottom:1rem">
+    <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Pending</div><div class="stat-value">${counts.pending}</div><div class="stat-sub">Awaiting review</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Approved</div><div class="stat-value">${counts.approved}</div><div class="stat-sub">Onboarded</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Declined</div><div class="stat-value">${counts.declined}</div><div class="stat-sub">Not proceeding</div></div>
+  </div>`;
+  if(!data.length){
+    html+=`<div class="card" style="text-align:center;padding:3rem"><div style="font-size:2rem;margin-bottom:.75rem">📭</div><div style="font-weight:600;margin-bottom:4px">No ${currentApplicationFilter} applications</div><div style="font-size:.82rem;color:var(--oz-muted)">Applications appear here as they are submitted.</div></div>`;
+  } else {
+    data.forEach(app=>{
+      const statusBadge=app.status==='approved'?'<span class="badge badge-green">✅ Approved</span>':app.status==='declined'?'<span class="badge badge-red">❌ Declined</span>':'<span class="badge badge-amber">⏳ Pending</span>';
+      let actions='';
+      if(app.status==='pending')actions=`<button class="btn btn-success" onclick="approveApplication('${app.id}')">✅ Approve</button><button class="btn btn-danger" onclick="openDeclineModal('${app.id}')">❌ Decline</button><button class="btn btn-ghost btn-sm" onclick="toast('Follow-up email sent')">📧 Follow Up</button>`;
+      else if(app.status==='approved')actions=`<button class="btn btn-ghost btn-sm" onclick="toast('Welcome email resent')">Resend Welcome</button><button class="btn btn-warning btn-sm" onclick="revokeApplication('${app.id}')">Revoke</button>`;
+      else actions=`<button class="btn btn-ghost btn-sm" onclick="reconsiderApplication('${app.id}')">↩ Reconsider</button>`;
+      html+=`<div class="applicant-card">
+        <div class="ac-header"><div><div class="ac-name">${app.firstName} ${app.lastName}</div><div class="ac-meta">📧 ${app.email} · 📱 ${app.phone} · Applied: ${app.appliedDate}</div></div>${statusBadge}</div>
+        <div class="ac-details">
+          <div><div class="adi-label">Region</div><div class="adi-value">📍 ${app.region||'—'}</div></div>
+          <div><div class="adi-label">Experience</div><div class="adi-value">💼 ${app.experience||'—'}</div></div>
+          <div><div class="adi-label">SA ID</div><div class="adi-value">${app.idNumber||'—'}</div></div>
+          <div><div class="adi-label">App ID</div><div class="adi-value"><code style="color:var(--oz-accent);font-size:.75rem">${app.id}</code></div></div>
+        </div>
+        <div style="font-size:.66rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:5px">Motivation</div>
+        <div class="ac-motivation">${app.motivation||'No motivation provided.'}</div>
+        <div class="ac-actions">${actions}</div>
+      </div>`;
+    });
+  }
+  document.getElementById('page-applications').innerHTML=html;
+}
+function approveApplication(id){const app=APPLICATIONS.find(a=>a.id===id);if(!app)return;app.status='approved';buildNav(currentUser.role);renderApplications();toast('✅ '+app.firstName+' '+app.lastName+' approved!');}
+function openDeclineModal(id){currentDeclineId=id;openModal('modal-decline');}
+function confirmDecline(){const app=APPLICATIONS.find(a=>a.id===currentDeclineId);if(app){app.status='declined';buildNav(currentUser.role);renderApplications();toast('Application from '+app.firstName+' declined.');}closeModal('modal-decline');currentDeclineId=null;}
+function revokeApplication(id){const app=APPLICATIONS.find(a=>a.id===id);if(!app)return;app.status='pending';buildNav(currentUser.role);renderApplications();toast('Approval revoked — moved to pending.');}
+function reconsiderApplication(id){const app=APPLICATIONS.find(a=>a.id===id);if(!app)return;app.status='pending';buildNav(currentUser.role);renderApplications();toast('Moved back to pending.');}
+
+// ===== PRODUCTS =====
+function renderProducts(){
+  document.getElementById('page-products').innerHTML=`
+  <div class="page-header">
+    <div class="page-header-left"><h1>Products &amp; Campaigns</h1><p>Manage promoted products — add more as your catalogue grows</p></div>
+    <div class="page-header-actions"><button class="btn btn-accent" onclick="openModal('modal-add-product')">+ Add Product</button></div>
+  </div>
+  <div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);border-radius:var(--r);padding:12px 15px;margin-bottom:1.2rem;font-size:.82rem;color:var(--oz-muted)">
+    <strong style="color:var(--oz-text)">💡 Tip:</strong> Products added here automatically appear when creating bookings.
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem">
+  ${PRODUCTS.map(p=>`<div class="product-card">
+    <div class="pc-header"><div><div class="pc-name">${p.name}</div><div class="pc-sku">SKU: ${p.sku} · ${p.category}</div></div><span class="badge ${p.status==='active'?'badge-green':'badge-gray'}">${p.status}</span></div>
+    <div class="pc-body">${p.desc}</div>
+    <div class="pc-tags"><span class="badge badge-cyan">📦 In stock</span><span style="font-size:.72rem;color:var(--oz-dim)">${p.barcode}</span></div>
+    <div style="display:flex;gap:7px;margin-top:.7rem">
+      <button class="btn btn-sm btn-ghost" onclick="toast('Editing ${p.name}')">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="toast('Product deactivated')">Deactivate</button>
+    </div>
+  </div>`).join('')}
+  </div>`;
+}
+function addProduct(){
+  const name=document.getElementById('np-name').value.trim();
+  if(!name){toast('Product name required');return;}
+  PRODUCTS.push({id:'P'+String(PRODUCTS.length+1).padStart(3,'0'),name,sku:document.getElementById('np-sku').value||'OZ-00'+(PRODUCTS.length+1),category:document.getElementById('np-cat').value,desc:document.getElementById('np-desc').value,barcode:document.getElementById('np-barcode').value||'—',status:document.getElementById('np-status').value});
+  closeModal('modal-add-product');renderProducts();toast('✅ '+name+' added to catalogue!');
+}
+
+// ===== STORE QR =====
+function renderStoreQR(){
+  document.getElementById('page-storeqr').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>Store QR Codes</h1><p>Printable QR codes for promoter check-in at each store · IoT integration coming soon</p></div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+  ${SETTINGS.stores.map((store,i)=>`<div class="card" style="text-align:center">
+    <div style="font-weight:600;font-size:.87rem;margin-bottom:.65rem">${store}</div>
+    <div style="display:flex;justify-content:center;margin-bottom:.65rem">
+      <div class="qr-container">
+        <svg width="90" height="90" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="100" fill="white"/>
+          <rect x="8" y="8" width="32" height="32" fill="none" stroke="#000" stroke-width="3"/>
+          <rect x="14" y="14" width="20" height="20" fill="#000"/>
+          <rect x="60" y="8" width="32" height="32" fill="none" stroke="#000" stroke-width="3"/>
+          <rect x="66" y="14" width="20" height="20" fill="#000"/>
+          <rect x="8" y="60" width="32" height="32" fill="none" stroke="#000" stroke-width="3"/>
+          <rect x="14" y="66" width="20" height="20" fill="#000"/>
+          <rect x="${44+(i%3)*4}" y="${44+(i%2)*4}" width="5" height="5" fill="#000"/>
+          <rect x="${52+(i%2)*4}" y="${44+(i%3)*4}" width="5" height="5" fill="#000"/>
+          <rect x="${60+(i%2)*4}" y="${52+(i%3)*4}" width="5" height="5" fill="#000"/>
+        </svg>
+      </div>
+    </div>
+    <div style="font-size:.7rem;color:var(--oz-muted);margin-bottom:.65rem">STR-${String(i+1).padStart(3,'0')}</div>
+    <button class="btn btn-sm btn-outline" style="width:100%" onclick="toast('QR Code printed for ${store}')">🖨 Print</button>
+  </div>`).join('')}
+  </div>`;
+}
+
+// ===== BUSINESS INTELLIGENCE =====
+function renderBI(){
+  const period=getPeriod('bi');
+  document.getElementById('page-bi').innerHTML=`
+  <div class="page-header">
+    <div class="page-header-left"><h1>Business Intelligence</h1><p>Revenue trends, promoter performance, predictive insights</p></div>
+    <div class="page-header-actions">${periodTabsHtml('bi')}</div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card" style="--kpi-color:var(--oz-accent)"><div class="kpi-val">${sym()}17,000</div><div class="kpi-label">Revenue (Month)</div><div class="kpi-change kpi-up">↑ 12% vs last month</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-green)"><div class="kpi-val">47</div><div class="kpi-label">Shifts Completed</div><div class="kpi-change kpi-up">↑ 8% vs last month</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-accent3)"><div class="kpi-val">94%</div><div class="kpi-label">Attendance Rate</div><div class="kpi-change kpi-up">↑ 3% vs last month</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-pink)"><div class="kpi-val">11.2</div><div class="kpi-label">Avg Photos/Shift</div><div class="kpi-change kpi-up">↑ Above minimum (${SETTINGS.minPhotosPerShift})</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-red)"><div class="kpi-val">${sym()}6,300</div><div class="kpi-label">Outstanding</div><div class="kpi-change kpi-down">↓ 2 invoices unpaid</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--oz-accent2)"><div class="kpi-val">4.3★</div><div class="kpi-label">Avg Shift Rating</div><div class="kpi-change kpi-up">↑ Based on reports</div></div>
+  </div>
+
+  <div class="two-col" style="margin-bottom:1rem">
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Monthly Revenue (${sym()})</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-revenue" role="img" aria-label="Monthly revenue bar chart for 2025">Revenue data for Jan-Jun 2025</canvas></div>
+      <div class="bi-insight-box"><div class="bi-i-label">Insight</div><div class="bi-i-text">June is on track to be the strongest month YTD. Projected end-of-month total: ${sym()}21,000 — a 12% increase over May.</div></div>
+    </div>
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Shifts Per Promoter</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-shifts" role="img" aria-label="Bar chart showing shifts per promoter">Shifts per promoter breakdown</canvas></div>
+      <div class="bi-insight-box"><div class="bi-i-label">Insight</div><div class="bi-i-text">Ayanda Nkosi leads with 31 shifts. Bongani Cele (9 shifts) is underutilised — consider more bookings in his region.</div></div>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-bottom:1rem">
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Attendance Rate by Promoter (%)</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="chart-attendance" role="img" aria-label="Attendance rate per promoter">Attendance rates</canvas></div>
+    </div>
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Invoice Status Breakdown</div>
+      <div class="chart-wrap" style="height:200px;display:flex;align-items:center;justify-content:center"><canvas id="chart-invoices" role="img" aria-label="Invoice status doughnut chart">Invoice paid vs outstanding</canvas></div>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-bottom:1rem">
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Stock Levels Across Stores (%)</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-stock" role="img" aria-label="Stock level bar chart per store">Stock levels</canvas></div>
+      <div class="bi-insight-box"><div class="bi-i-label">Predictive Alert</div><div class="bi-i-text">At current depletion rate, Checkers La Lucia will run out of Aqua Mist in ~3 days. Reorder recommended.</div></div>
+    </div>
+    <div class="bi-chart-card">
+      <div class="bi-chart-title">Report Rating Distribution</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-ratings" role="img" aria-label="Pie chart of shift ratings">Shift ratings breakdown</canvas></div>
+    </div>
+  </div>
+
+  <div class="bi-chart-card" style="margin-bottom:1rem">
+    <div class="bi-chart-title">Weekly Shift Activity — Last 6 Weeks</div>
+    <div class="chart-wrap" style="height:180px"><canvas id="chart-weekly" role="img" aria-label="Line chart of weekly shift activity">Weekly shifts trend</canvas></div>
+    <div class="bi-insight-box"><div class="bi-i-label">Trend Analysis</div><div class="bi-i-text">Shift volume is growing week-on-week. If current trend continues, you will need to onboard 1–2 additional promoters by end of July to maintain service quality.</div></div>
+  </div>`;
+
+  setTimeout(()=>{
+    const dark='rgba(255,255,255,.06)', grid='rgba(255,255,255,.05)', accent='rgba(0,212,255,.75)', green='rgba(16,185,129,.75)', amber='rgba(245,158,11,.75)', red='rgba(239,68,68,.75)', purple='rgba(124,58,237,.75)';
+    const txtMuted='rgba(136,153,187,0.8)';
+    const baseOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:grid},ticks:{color:txtMuted,font:{size:11}}},y:{grid:{color:grid},ticks:{color:txtMuted,font:{size:11}}}}};
+
+    biCharts.revenue=new Chart(document.getElementById('chart-revenue'),{type:'bar',data:{labels:['Jan','Feb','Mar','Apr','May','Jun'],datasets:[{label:'Revenue',data:[8500,11200,9800,13400,15200,17000],backgroundColor:[dark,dark,dark,dark,dark,accent],borderColor:[accent,accent,accent,accent,accent,accent],borderWidth:1,borderRadius:4}]},options:{...baseOpts,plugins:{legend:{display:false}}}});
+
+    biCharts.shifts=new Chart(document.getElementById('chart-shifts'),{type:'bar',data:{labels:['Zanele','Sipho','Ayanda','Thandeka','Bongani'],datasets:[{label:'Shifts',data:[24,18,31,15,9],backgroundColor:[accent,green,amber,purple,red],borderRadius:4}]},options:{...baseOpts}});
+
+    biCharts.attendance=new Chart(document.getElementById('chart-attendance'),{type:'bar',data:{labels:['Zanele','Sipho','Ayanda','Thandeka','Bongani'],datasets:[{label:'Attendance %',data:[100,95,90,100,80],backgroundColor:[green,green,amber,green,red],borderRadius:4}]},options:{...baseOpts,scales:{...baseOpts.scales,y:{...baseOpts.scales.y,max:110}}}});
+
+    const paid=INVOICES.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);
+    const outs=INVOICES.filter(i=>i.status==='outstanding').reduce((s,i)=>s+i.amount,0);
+    biCharts.invoices=new Chart(document.getElementById('chart-invoices'),{type:'doughnut',data:{labels:['Paid','Outstanding'],datasets:[{data:[paid,outs],backgroundColor:[green,red],borderColor:['transparent'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:txtMuted,font:{size:11},boxWidth:12}}},cutout:'65%'}});
+
+    biCharts.stock=new Chart(document.getElementById('chart-stock'),{type:'bar',data:{labels:STOCK.map(s=>s.store.split('—')[0].trim()+' '+s.sku),datasets:[{label:'Stock %',data:STOCK.map(s=>Math.round((s.qty/s.par)*100)),backgroundColor:STOCK.map(s=>{const p=Math.round((s.qty/s.par)*100);return p>60?green:p>20?amber:red;}),borderRadius:4}]},options:{...baseOpts,scales:{...baseOpts.scales,y:{...baseOpts.scales.y,max:110}}}});
+
+    biCharts.ratings=new Chart(document.getElementById('chart-ratings'),{type:'pie',data:{labels:['Excellent','Good','Average'],datasets:[{data:[3,2,0],backgroundColor:[green,accent,amber],borderColor:['transparent'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:txtMuted,font:{size:11},boxWidth:12}}}}});
+
+    biCharts.weekly=new Chart(document.getElementById('chart-weekly'),{type:'line',data:{labels:['Wk 1','Wk 2','Wk 3','Wk 4','Wk 5','Wk 6'],datasets:[{label:'Shifts',data:[6,8,7,9,10,11],borderColor:accent,backgroundColor:'rgba(0,212,255,.08)',fill:true,tension:.4,pointBackgroundColor:accent,pointRadius:4}]},options:{...baseOpts}});
+  }, 80);
+}
+
+// ===== SETTINGS =====
+function renderSettings(){
+  const storeTagsHtml = SETTINGS.stores.map((s,i)=>`<span class="store-tag">${s}<button onclick="removeStore(${i})">✕</button></span>`).join('');
+
+  document.getElementById('page-settings').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>Settings</h1><p>All system configuration — changes apply immediately across the platform</p></div></div>
+
+  <div class="settings-grid">
+
+    <!-- PAY & RATES -->
+    <div class="settings-card">
+      <div class="settings-card-title">💰 Pay &amp; Rates</div>
+      <div class="setting-row"><div><div class="sr-label">Hourly Rate (${SETTINGS.currencySymbol})</div><div class="sr-sub">Base rate paid to all promoters</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-rate" value="${SETTINGS.hourlyRate}" min="0" onchange="SETTINGS.hourlyRate=+this.value;toast('Rate updated to ${sym()}'+this.value+'/hr');"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Standard Shift Hours</div><div class="sr-sub">Hours per shift for pay calculation</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-hours" value="${SETTINGS.shiftHours}" min="1" max="12" onchange="SETTINGS.shiftHours=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Overtime Multiplier</div><div class="sr-sub">e.g. 1.5 = time-and-a-half</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-ot" value="${SETTINGS.overtimeMultiplier}" min="1" step="0.1" onchange="SETTINGS.overtimeMultiplier=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Payment Terms (Days)</div><div class="sr-sub">Days after shift sign-off to pay</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-terms" value="${SETTINGS.paymentTermsDays}" min="1" onchange="SETTINGS.paymentTermsDays=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Currency Symbol</div><div class="sr-sub">Displayed throughout the system</div></div><div class="sr-control"><input class="settings-input-inline" type="text" id="s-sym" value="${SETTINGS.currencySymbol}" maxlength="3" onchange="SETTINGS.currencySymbol=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Tax Rate (%)</div><div class="sr-sub">Applied to invoices if applicable</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-tax" value="${SETTINGS.taxRate}" min="0" max="100" onchange="SETTINGS.taxRate=+this.value;"></div></div>
+      <div style="margin-top:1rem;padding:12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.16);border-radius:var(--r);font-size:.82rem;color:var(--oz-muted)">
+        Current shift pay: <strong style="color:var(--oz-green)">${sym()}${shiftPay()}</strong> (${sym()}${SETTINGS.hourlyRate} × ${SETTINGS.shiftHours}hrs)
+      </div>
+    </div>
+
+    <!-- BUSINESS DETAILS -->
+    <div class="settings-card">
+      <div class="settings-card-title">🏢 Business Details</div>
+      <div class="setting-row"><div><div class="sr-label">Company Name</div></div><div class="sr-control"><input class="settings-input-wide" type="text" id="s-company" value="${SETTINGS.companyName}" onchange="SETTINGS.companyName=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Company Email</div></div><div class="sr-control"><input class="settings-input-wide" type="email" id="s-cemail" value="${SETTINGS.companyEmail}" onchange="SETTINGS.companyEmail=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Company Phone</div></div><div class="sr-control"><input class="settings-input-wide" type="tel" id="s-cphone" value="${SETTINGS.companyPhone}" onchange="SETTINGS.companyPhone=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">VAT Number</div></div><div class="sr-control"><input class="settings-input-wide" type="text" id="s-vat" value="${SETTINGS.vatNumber}" onchange="SETTINGS.vatNumber=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Invoice Prefix</div><div class="sr-sub">e.g. INV-2025-</div></div><div class="sr-control"><input class="settings-input-wide" type="text" id="s-invpre" value="${SETTINGS.invoicePrefix}" onchange="SETTINGS.invoicePrefix=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Brand Name</div><div class="sr-sub">Shown in navigation</div></div><div class="sr-control"><input class="settings-input-wide" type="text" id="s-brand" value="${SETTINGS.brandName}" onchange="SETTINGS.brandName=this.value;document.querySelectorAll('.brand').forEach(el=>el.textContent='⬡ '+this.value);"></div></div>
+    </div>
+
+    <!-- SHIFT & OPERATIONS -->
+    <div class="settings-card">
+      <div class="settings-card-title">⚡ Shift &amp; Operations</div>
+      <div class="setting-row"><div><div class="sr-label">Min Photos Per Shift</div><div class="sr-sub">Minimum required for checkout</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-minphoto" value="${SETTINGS.minPhotosPerShift}" min="1" onchange="SETTINGS.minPhotosPerShift=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Max Photos Per Shift</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-maxphoto" value="${SETTINGS.maxPhotosPerShift}" min="1" onchange="SETTINGS.maxPhotosPerShift=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Late Check-in Threshold (min)</div><div class="sr-sub">Trigger late alert after N minutes</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-late" value="${SETTINGS.lateCheckinThresholdMins}" min="1" onchange="SETTINGS.lateCheckinThresholdMins=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Check-in Radius (metres)</div><div class="sr-sub">GPS accuracy threshold</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-radius" value="${SETTINGS.checkinRadiusMeters}" min="50" onchange="SETTINGS.checkinRadiusMeters=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Default Shift Start</div></div><div class="sr-control"><input class="settings-input-inline" type="time" id="s-shiftstart" value="${SETTINGS.defaultShiftStart}" onchange="SETTINGS.defaultShiftStart=this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Max Bookings/Promoter/Week</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-maxbk" value="${SETTINGS.maxBookingsPerPromoterPerWeek}" min="1" onchange="SETTINGS.maxBookingsPerPromoterPerWeek=+this.value;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Application Review Target (days)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-appdays" value="${SETTINGS.applicationReviewDays}" min="1" onchange="SETTINGS.applicationReviewDays=+this.value;"></div></div>
+    </div>
+
+    <!-- FEATURE FLAGS -->
+    <div class="settings-card">
+      <div class="settings-card-title">🔧 Feature Flags</div>
+      <div class="setting-row"><div><div class="sr-label">GPS Verification</div><div class="sr-sub">Require GPS match on check-in</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.enableGPSVerification?'checked':''} onchange="SETTINGS.enableGPSVerification=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">QR Code Check-in</div><div class="sr-sub">Enable QR scan for attendance</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.enableQRCheckin?'checked':''} onchange="SETTINGS.enableQRCheckin=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Chatbot Assistant</div><div class="sr-sub">Show assistant for all users</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.enableChatbot?'checked':''} onchange="SETTINGS.enableChatbot=this.checked;document.getElementById('chat-fab').style.display=this.checked?'flex':'none'"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Feedback Before Checkout</div><div class="sr-sub">Report must be submitted first</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.requireFeedbackBeforeCheckout?'checked':''} onchange="SETTINGS.requireFeedbackBeforeCheckout=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Manager Approval Required</div><div class="sr-sub">Bookings need manager sign-off</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.requireManagerApproval?'checked':''} onchange="SETTINGS.requireManagerApproval=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Promoter Self-Assign</div><div class="sr-sub">Allow promoters to book themselves</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.allowPromoterSelfAssign?'checked':''} onchange="SETTINGS.allowPromoterSelfAssign=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Auto-Generate Invoices</div><div class="sr-sub">Auto-create on shift completion</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.autoGenerateInvoices?'checked':''} onchange="SETTINGS.autoGenerateInvoices=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Show Earnings to Promoter</div><div class="sr-sub">Show pay figures on promoter view</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.showEarningsToPromoter?'checked':''} onchange="SETTINGS.showEarningsToPromoter=this.checked"><span class="toggle-slider"></span></label></div></div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="settings-card">
+      <div class="settings-card-title">🔔 Notifications</div>
+      <div class="setting-row"><div><div class="sr-label">New Application Submitted</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.notifyNewApplication?'checked':''} onchange="SETTINGS.notifyNewApplication=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Booking Accepted/Declined</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.notifyBookingResponse?'checked':''} onchange="SETTINGS.notifyBookingResponse=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Low Stock Alert</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.notifyLowStock?'checked':''} onchange="SETTINGS.notifyLowStock=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Invoice Overdue</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.notifyInvoiceOverdue?'checked':''} onchange="SETTINGS.notifyInvoiceOverdue=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Daily Summary Report</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.notifyDailyReport?'checked':''} onchange="SETTINGS.notifyDailyReport=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Late Check-in Alert</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${SETTINGS.notifyLateCheckin?'checked':''} onchange="SETTINGS.notifyLateCheckin=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Low Stock Threshold (%)</div><div class="sr-sub">Trigger below this stock level</div></div><div class="sr-control"><div class="range-control"><input type="range" min="5" max="50" value="${SETTINGS.lowStockThresholdPct}" step="5" oninput="SETTINGS.lowStockThresholdPct=+this.value;this.nextElementSibling.textContent=this.value+'%'"><span class="range-val">${SETTINGS.lowStockThresholdPct}%</span></div></div></div>
+      <div class="setting-row"><div><div class="sr-label">Invoice Overdue After (Days)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" id="s-invdays" value="${SETTINGS.invoiceOverdueDays}" min="1" onchange="SETTINGS.invoiceOverdueDays=+this.value;"></div></div>
+    </div>
+
+    <!-- STORE MANAGEMENT -->
+    <div class="settings-card">
+      <div class="settings-card-title">🏪 Store Management</div>
+      <div style="margin-bottom:.75rem"><div style="font-size:.78rem;color:var(--oz-muted);margin-bottom:6px">Active stores (click × to remove)</div><div id="store-tags-wrap">${storeTagsHtml}</div></div>
+      <div style="display:flex;gap:7px;margin-top:.75rem">
+        <input class="settings-input-wide" type="text" id="new-store-input" placeholder="e.g. Clicks — Durban" style="flex:1;width:auto">
+        <button class="btn btn-accent btn-sm" onclick="addStore()">+ Add</button>
+      </div>
+      <div style="margin-top:1rem">
+        <div style="font-size:.78rem;color:var(--oz-muted);margin-bottom:6px">Regions</div>
+        <textarea class="settings-textarea" id="s-regions" placeholder="One region per line">${SETTINGS.regions.join('\n')}</textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:.5rem"><button class="btn btn-accent btn-sm" onclick="SETTINGS.regions=document.getElementById('s-regions').value.split('\n').map(s=>s.trim()).filter(Boolean);toast('Regions saved')">Save Regions</button></div>
+      </div>
+    </div>
+
+    <!-- APPEARANCE -->
+    <div class="settings-card">
+      <div class="settings-card-title">🎨 Appearance</div>
+      <div class="setting-row"><div><div class="sr-label">Accent Color</div><div class="sr-sub">Primary highlight color</div></div><div class="sr-control"><input type="color" value="${SETTINGS.accentColor}" onchange="SETTINGS.accentColor=this.value;document.documentElement.style.setProperty('--oz-accent',this.value);" style="width:44px;height:28px;border-radius:6px;border:1px solid var(--oz-border2);background:none;cursor:pointer;"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Quick Presets</div></div></div>
+      <div class="color-swatch-row">
+        <div class="color-swatch active" style="background:#00d4ff" onclick="applyAccent('#00d4ff')" title="Cyan"></div>
+        <div class="color-swatch" style="background:#10b981" onclick="applyAccent('#10b981')" title="Green"></div>
+        <div class="color-swatch" style="background:#f59e0b" onclick="applyAccent('#f59e0b')" title="Amber"></div>
+        <div class="color-swatch" style="background:#ec4899" onclick="applyAccent('#ec4899')" title="Pink"></div>
+        <div class="color-swatch" style="background:#7c3aed" onclick="applyAccent('#7c3aed')" title="Purple"></div>
+        <div class="color-swatch" style="background:#ef4444" onclick="applyAccent('#ef4444')" title="Red"></div>
+        <div class="color-swatch" style="background:#f97316" onclick="applyAccent('#f97316')" title="Orange"></div>
+      </div>
+    </div>
+
+    <!-- DEVELOPER / OPEN SOURCE -->
+    <div class="settings-card">
+      <div class="settings-card-title">🛠 Developer &amp; Open Source</div>
+      <div style="font-size:.78rem;color:var(--oz-muted);line-height:1.6;margin-bottom:1rem">All system data lives in the top of the JS file as plain arrays and a SETTINGS object. Swap in your database (Supabase recommended) by replacing the data arrays with async fetch calls.</div>
+      <div class="setting-row"><div><div class="sr-label">Export Settings JSON</div><div class="sr-sub">Copy to clipboard for config migration</div></div><div class="sr-control"><button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText(JSON.stringify(SETTINGS,null,2)).then(()=>toast('Settings JSON copied!'))">Copy JSON</button></div></div>
+      <div class="setting-row"><div><div class="sr-label">Export All Data JSON</div><div class="sr-sub">Full system dump (no DB)</div></div><div class="sr-control"><button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText(JSON.stringify({SETTINGS,BOOKINGS,ATTENDANCE,STOCK,REPORTS,INVOICES,PROMOTERS,APPLICATIONS,PRODUCTS},null,2)).then(()=>toast('Full data JSON copied!'))">Copy JSON</button></div></div>
+      <div class="setting-row"><div><div class="sr-label">Reset to Defaults</div><div class="sr-sub">Restore all settings to defaults</div></div><div class="sr-control"><button class="btn btn-sm btn-danger" onclick="if(confirm('Reset all settings?')){location.reload();}">Reset</button></div></div>
+      <div style="margin-top:1rem;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:var(--r);font-size:.76rem;color:var(--oz-muted)">
+        <strong style="color:#a78bfa">IoT &amp; Auth integration:</strong> QR check-in hooks into <code style="color:var(--oz-accent)">enableQRCheckin</code> setting. Database and authentication can be wired up by replacing SETTINGS/data arrays with Supabase calls. GPS verification reads from <code style="color:var(--oz-accent)">checkinRadiusMeters</code>.
+      </div>
+    </div>
+
+  </div>`;
+}
+
+function addStore(){
+  const val=document.getElementById('new-store-input').value.trim();
+  if(!val){toast('Store name required');return;}
+  SETTINGS.stores.push(val);
+  document.getElementById('new-store-input').value='';
+  document.getElementById('store-tags-wrap').innerHTML=SETTINGS.stores.map((s,i)=>`<span class="store-tag">${s}<button onclick="removeStore(${i})">✕</button></span>`).join('');
+  toast('Store added: '+val);
+}
+function removeStore(i){
+  SETTINGS.stores.splice(i,1);
+  document.getElementById('store-tags-wrap').innerHTML=SETTINGS.stores.map((s,j)=>`<span class="store-tag">${s}<button onclick="removeStore(${j})">✕</button></span>`).join('');
+  toast('Store removed');
+}
+function applyAccent(color){
+  SETTINGS.accentColor=color;
+  document.documentElement.style.setProperty('--oz-accent',color);
+  document.querySelectorAll('.color-swatch').forEach(el=>el.classList.remove('active'));
+  event.target.classList.add('active');
+  toast('Accent color updated');
+}
+
+// ===== MY BOOKINGS (promoter) =====
+function renderMyBookings(){
+  const mine=BOOKINGS.filter(b=>b.promoter==='Zanele Dlamini');
+  const period=getPeriod('mybookings');
+  const filtered=filterByPeriod(mine,'date',period);
+
+  document.getElementById('page-mybookings').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>My Bookings</h1><p>Upcoming and past assignments</p></div></div>
+  <div class="filter-bar">${periodTabsHtml('mybookings')}</div>
+  ${filtered.length?filtered.map(b=>`
+  <div class="card" style="margin-bottom:.9rem;border-left:3px solid ${b.status==='confirmed'?'var(--oz-green)':b.status==='pending'?'var(--oz-accent3)':'var(--oz-red)'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem">
+      <div>
+        <div style="font-family:var(--font-h);font-size:.95rem;font-weight:700;margin-bottom:3px">${b.product}</div>
+        <div style="color:var(--oz-muted);font-size:.84rem">📍 ${b.store}</div>
+        <div style="color:var(--oz-muted);font-size:.84rem;margin-top:1px">🗓 ${b.date} · ${b.shift}</div>
+        <div style="margin-top:6px"><span class="pay-badge">💰 ${sym()}${shiftPay()} for ${SETTINGS.shiftHours}hrs (${sym()}${SETTINGS.hourlyRate}/hr)</span></div>
+        ${b.notes?`<div style="margin-top:5px;font-size:.78rem;color:var(--oz-dim)">📌 ${b.notes}</div>`:''}
+      </div>
+      <div>
+        <span class="badge ${b.status==='confirmed'?'badge-green':b.status==='declined'?'badge-red':'badge-amber'}" style="display:block;text-align:center;margin-bottom:6px">${b.status}</span>
+        ${b.status==='pending'?`<div style="display:flex;gap:5px"><button class="btn btn-sm btn-success" onclick="toast('Booking accepted! ${sym()}${shiftPay()} confirmed.')">Accept</button><button class="btn btn-sm btn-danger" onclick="toast('Declined')">Decline</button></div>`:''}
+      </div>
+    </div>
+  </div>`).join(''):`<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No bookings in this period</div>`}`;
+}
+
+// ===== MY SHIFT =====
+function renderMyShift(){
+  const c=shiftState.checkedIn, p=shiftState.photos, f=shiftState.feedbackSubmitted;
+  const canCheckout=c&&p>=SETTINGS.minPhotosPerShift&&(!SETTINGS.requireFeedbackBeforeCheckout||f);
+  document.getElementById('page-myshift').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>Active Shift</h1><p>Check in, upload photos, submit report</p></div></div>
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:1rem">
+      <div>
+        <div style="font-family:var(--font-h);font-size:1rem;font-weight:700">Clicks — Gateway</div>
+        <div style="color:var(--oz-muted);font-size:.82rem">Aqua Body Mist · 09:00–17:00</div>
+        <div style="margin-top:5px"><span class="pay-badge">💰 ${sym()}${shiftPay()} for this shift</span></div>
+      </div>
+      <span class="badge badge-cyan" style="margin-left:auto">Today</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.9rem">
+      <div class="card" style="border:1px solid ${c?'var(--oz-green)':'var(--oz-border)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><div style="font-weight:600">Step 1 — Check In</div><div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">Scan the store QR code to verify your location</div></div>
+          ${c?'<span class="badge badge-green">✓ Checked in 09:02</span>':'<button class="btn btn-success" onclick="doCheckin()">📲 Scan QR</button>'}
+        </div>
+      </div>
+      <div class="card" style="border:1px solid ${p>=SETTINGS.minPhotosPerShift?'var(--oz-green)':'var(--oz-border)'};opacity:${c?1:0.4}">
+        <div style="font-weight:600;margin-bottom:.4rem">Step 2 — Upload Photos <span style="font-size:.74rem;font-weight:400;color:var(--oz-muted)">(min ${SETTINGS.minPhotosPerShift})</span></div>
+        <div class="photo-grid" style="margin-bottom:.65rem">${Array.from({length:SETTINGS.minPhotosPerShift},(_,i)=>`<div class="photo-thumb ${i<p?'filled':''}" onclick="${c?'addPhoto()':''}">${i>=p?'<span style="font-size:.9rem">📷</span>':''}</div>`).join('')}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.79rem;color:${p>=SETTINGS.minPhotosPerShift?'var(--oz-green)':'var(--oz-muted)'}">${p}/${SETTINGS.minPhotosPerShift} photos</span>
+          ${c&&p<SETTINGS.minPhotosPerShift?'<button class="btn btn-sm btn-outline" onclick="addPhoto()">+ Upload Photo</button>':''}
+        </div>
+      </div>
+      <div class="card" style="border:1px solid ${f?'var(--oz-green)':'var(--oz-border)'};opacity:${c?1:0.4}">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><div style="font-weight:600">Step 3 — Feedback Report</div><div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">${SETTINGS.requireFeedbackBeforeCheckout?'Required before check-out':'Optional'}</div></div>
+          ${f?'<span class="badge badge-green">✓ Submitted</span>':`<button class="btn btn-outline" onclick="${c?"openModal('modal-feedback')":'toast(\'Check in first\')'}"${!c?' disabled':''}>Submit Report</button>`}
+        </div>
+      </div>
+      <div class="card" style="opacity:${canCheckout?1:0.35}">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><div style="font-weight:600">Step 4 — Check Out</div><div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">Complete all steps above to unlock</div></div>
+          <button class="btn btn-danger" onclick="doCheckout()"${!canCheckout?' disabled':''}>Sign Off Shift</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function doCheckin(){shiftState.checkedIn=true;toast('📍 Check-in verified — GPS captured');renderMyShift();}
+function addPhoto(){if(!shiftState.checkedIn||shiftState.photos>=SETTINGS.maxPhotosPerShift)return;shiftState.photos++;renderMyShift();toast('📸 Photo '+shiftState.photos+' uploaded');}
+function doCheckout(){toast('✅ Shift complete! '+sym()+shiftPay()+' will be processed within '+SETTINGS.paymentTermsDays+' business days.');shiftState={checkedIn:false,photos:0,feedbackSubmitted:false};setTimeout(renderMyShift,1500);}
+
+// ===== MY PAY =====
+function renderMyPay(){
+  const period=getPeriod('mypay');
+  document.getElementById('page-mypay').innerHTML=`
+  <div class="page-header"><div class="page-header-left"><h1>My Pay</h1><p>Earnings history and upcoming payments</p></div></div>
+  <div class="filter-bar">${periodTabsHtml('mypay')}</div>
+  <div class="stats-grid" style="margin-bottom:1.4rem">
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Total Earned (2025)</div><div class="stat-value" style="font-size:1.4rem;color:var(--oz-green)">${sym()}${(24*shiftPay()).toLocaleString()}</div><div class="stat-sub">24 shifts × ${sym()}${shiftPay()}</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Your Rate</div><div class="stat-value" style="font-size:1.4rem">${sym()}${SETTINGS.hourlyRate}</div><div class="stat-sub">per hour · ${sym()}${shiftPay()} per ${SETTINGS.shiftHours}hr shift</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Payment Terms</div><div class="stat-value" style="font-size:1.1rem">${SETTINGS.paymentTermsDays} days</div><div class="stat-sub">After shift sign-off</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Recent Payments</div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Store</th><th>Shift</th><th>Hours</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+    ${[{d:'2025-06-03',s:'Clicks Gateway',sh:'09:00–17:00',h:8},{d:'2025-05-28',s:'Dis-Chem Pavilion',sh:'10:00–18:00',h:8},{d:'2025-05-21',s:'Clicks Westville',sh:'09:00–17:00',h:8},{d:'2025-05-14',s:'Pick n Pay Musgrave',sh:'08:00–16:00',h:8}].map((r,i)=>`<tr><td>${r.d}</td><td>${r.s}</td><td style="font-size:.78rem;color:var(--oz-muted)">${r.sh}</td><td>${r.h} hrs</td><td style="font-weight:600;color:var(--oz-green)">${sym()}${(r.h*SETTINGS.hourlyRate).toLocaleString()}</td><td><span class="badge ${i===0?'badge-amber':'badge-green'}">${i===0?'Processing':'Paid'}</span></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+}
+
+// ===== MODALS =====
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function createBooking(){closeModal('modal-add-booking');toast('📅 Booking sent to promoter!');}
+function submitFeedback(){closeModal('modal-feedback');shiftState.feedbackSubmitted=true;toast('📝 Report submitted!');renderMyShift();}
+function createInvoice(){closeModal('modal-invoice');toast('🧾 Invoice generated!');}
+
+// ===== TOAST =====
+let toastTimer;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3200);}
+
+// ===== CHATBOT =====
+let chatContext='public', chatOpen=false;
+const CHAT_KB = {
+  public:{
+    greeting:"Hi! 👋 I'm the Ozone assistant. I can answer questions about the promoter role, pay, requirements, and how to apply. What would you like to know?",
+    quickReplies:["💰 What's the pay?","📋 Requirements?","📍 Locations?","🕐 Shift hours?","🚀 How to apply?"],
+    responses:{
+      "pay":"Current rate is R65/hour. An 8-hour shift pays R520. Paid within 5 business days after sign-off.",
+      "rate":"Current rate is R65/hour. An 8-hour shift pays R520.",
+      "earn":"You earn R65/hr. Standard shift = R520 for 8 hours.",
+      "salary":"R65/hr base rate, R520 per shift.",
+      "requirement":"You need: ✅ Matric or equivalent ✅ Customer-facing experience (preferred) ✅ A smartphone ✅ Professional appearance. No promoter experience needed!",
+      "qualify":"You need: ✅ Matric ✅ Customer experience (preferred) ✅ A smartphone ✅ Professional presentation.",
+      "store":"We activate at Clicks, Dis-Chem, Checkers, and Pick n Pay across KZN, Gauteng and Western Cape.",
+      "location":"We activate at Clicks, Dis-Chem, Checkers, and Pick n Pay across KZN, Gauteng and Western Cape.",
+      "shift":"Shifts are 8 hours — morning or afternoon. Scheduling sent via the app in advance.",
+      "hours":"Standard shift is 8 hours. Morning (09:00–17:00) or afternoon (10:00–18:00).",
+      "apply":"Click 'Apply here' on the sign-in page or 'Apply as Promoter' from the home page. Takes about 5 minutes.",
+      "how":"Click 'Apply as Promoter' on the landing page. Fill in your details and motivation, set a password, and submit.",
+      "review":"Applications are reviewed within 2–3 business days. You'll receive an email with the outcome.",
+      "product":"You'll promote Ozone Aqua Body Mist and Rose Glow Serum. Full product training before your first shift.",
+      "duty":"Your duties: 🧴 Sampling and demos · 📦 Stock checks · 📸 10+ photos per shift · 📝 Feedback report at end of shift.",
+      "payment":"Payments processed within 5 business days after shift sign-off.",
+      "paid":"Payments arrive within 5 business days. Track them in My Pay once approved.",
+      "transport":"Promoters arrange own transport. Store locations shown in advance.",
+      "age":"You must be 18 or older to apply.",
+      "id":"A valid South African ID number is required on application.",
+      "default":"I can help with: pay rates, requirements, shift times, store locations, and how to apply. What would you like to know?"
+    }
+  },
+  promoter:{
+    greeting:"Hi Zanele! 👋 Ask me anything — bookings, shifts, photos, reports, or your pay.",
+    quickReplies:["📅 My Bookings","💰 My Pay","⚡ Active Shift","📸 Upload photos","📝 Submit report"],
+    responses:{
+      "booking":"Go to **My Bookings** in the sidebar to view and respond to assignments.",
+      "shift":"Your active shift is in **Active Shift** ⚡. Follow the 4 steps: Check In → Photos → Report → Check Out.",
+      "check in":"In **Active Shift**, tap Scan QR to verify your location and record check-in.",
+      "checkin":"In **Active Shift**, tap Scan QR to verify your location.",
+      "photo":"In **Active Shift**, Step 2 — upload at least "+SETTINGS.minPhotosPerShift+" photos per shift.",
+      "report":"In **Active Shift**, Step 3 — Submit Feedback Report before checking out.",
+      "checkout":"Complete all 3 steps first (Check In, Photos, Report), then Check Out unlocks.",
+      "check out":"Complete all steps, then the Check Out button in Step 4 becomes active.",
+      "pay":"Go to **My Pay** 💰 to see earnings history and rate. You earn "+sym()+SETTINGS.hourlyRate+"/hr.",
+      "earn":"Your rate is **"+sym()+SETTINGS.hourlyRate+"/hr** — **"+sym()+shiftPay()+" per "+SETTINGS.shiftHours+"-hour shift**.",
+      "paid":"Payments arrive within "+SETTINGS.paymentTermsDays+" business days after sign-off. Check **My Pay** for status.",
+      "accept":"In **My Bookings**, find the booking and tap Accept.",
+      "decline":"In **My Bookings**, find the booking and tap Decline.",
+      "navigate":"Use the sidebar: 📅 My Bookings · ⚡ Active Shift · 💰 My Pay · 📝 My Reports",
+      "default":"I can help with: bookings, shift check-ins, photos, reports, and your pay. What do you need?"
+    }
+  },
+  manager:{
+    greeting:"Hi Nomsa! 👋 I'm here to help you navigate the system. Ask about bookings, promoters, stock, invoices, or settings.",
+    quickReplies:["📅 Create booking","📊 View BI dashboard","📋 Pending applications","📦 Stock levels","⚙️ Settings"],
+    responses:{
+      "booking":"Go to **Bookings** to manage assignments. Click **+ New Booking** to create one.",
+      "bi":"The **Business Intelligence** page has charts for revenue, shifts, attendance, stock, and invoice trends.",
+      "dashboard":"The **Dashboard** gives you a quick overview of active bookings, pending applications, low stock, and recent activity.",
+      "application":"Go to **Applications** to review, approve, or decline promoter applications.",
+      "stock":"Check **Stock Management** for current inventory levels across all stores. Low stock alerts trigger below "+SETTINGS.lowStockThresholdPct+"%.",
+      "invoice":"Go to **Invoices** to view, generate, and mark invoices paid.",
+      "promoter":"See **Promoters** for the full team roster, earnings, and status.",
+      "setting":"Go to **Settings** to configure pay rates, shift rules, notifications, stores, and feature flags.",
+      "report":"**Feedback Reports** shows all shift reports submitted by promoters.",
+      "attendance":"**Attendance** shows GPS check-in records, device IDs, and photo counts per shift.",
+      "default":"I can help navigate the manager system. Try asking about bookings, stock, invoices, BI, applications, or settings."
+    }
+  }
+};
+function showChatFab(show){document.getElementById('chat-fab').style.display=show?'flex':'none';}
+function toggleChat(){
+  chatOpen=!chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
+  document.getElementById('chat-badge').style.display='none';
+  if(chatOpen&&document.getElementById('chat-messages').children.length===0){
+    const ctx=CHAT_KB[chatContext];
+    addBotMessage(ctx.greeting);setQuickReplies(ctx.quickReplies);
+  }
+}
+function initChat(role){
+  chatContext=role==='promoter'?'promoter':'manager';
+  document.getElementById('chat-messages').innerHTML='';
+  document.getElementById('chat-qr').innerHTML='';
+  chatOpen=false;document.getElementById('chat-panel').classList.remove('open');
+}
+function addBotMessage(text,delay=0){
+  const msgs=document.getElementById('chat-messages');
+  if(delay>0){
+    const t=document.createElement('div');t.className='chat-msg bot';
+    t.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';t.id='typing-ind';
+    msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;
+    setTimeout(()=>{const ti=document.getElementById('typing-ind');if(ti)ti.remove();appendBotBubble(text);},delay);
+  } else appendBotBubble(text);
+}
+function appendBotBubble(text){
+  const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg bot';
+  el.innerHTML=`<div class="chat-bubble">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div><div class="chat-time">${getTime()}</div>`;
+  msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
+}
+function addUserMessage(text){
+  const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg user';
+  el.innerHTML=`<div class="chat-bubble">${text}</div><div class="chat-time">${getTime()}</div>`;
+  msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
+}
+function setQuickReplies(chips){
+  document.getElementById('chat-qr').innerHTML=chips.map(c=>`<span class="qr-chip" onclick="handleQuickReply('${c}')">${c}</span>`).join('');
+}
+function handleQuickReply(text){document.getElementById('chat-qr').innerHTML='';addUserMessage(text);processMsg(text.replace(/^[^\s]+\s/,'').toLowerCase());}
+function sendChat(){const inp=document.getElementById('chat-input'),t=inp.value.trim();if(!t)return;inp.value='';document.getElementById('chat-qr').innerHTML='';addUserMessage(t);processMsg(t.toLowerCase());}
+function processMsg(text){
+  const ctx=CHAT_KB[chatContext]||CHAT_KB.public;let response=null;
+  if(chatContext==='promoter'){
+    if(text.includes('booking')){response=ctx.responses['booking'];setTimeout(()=>showPage('mybookings'),1200);}
+    else if(text.includes('pay')||text.includes('earn')){response=ctx.responses['pay'];setTimeout(()=>showPage('mypay'),1200);}
+    else if(text.includes('shift')||text.includes('check in')){response=ctx.responses['shift'];setTimeout(()=>showPage('myshift'),1200);}
+  } else if(chatContext==='manager'){
+    if(text.includes('booking')){response=ctx.responses['booking'];setTimeout(()=>showPage('bookings'),1200);}
+    else if(text.includes('bi')||text.includes('dashboard')||text.includes('intelligence')){response=ctx.responses['bi'];setTimeout(()=>showPage('bi'),1200);}
+    else if(text.includes('application')){response=ctx.responses['application'];setTimeout(()=>showPage('applications'),1200);}
+    else if(text.includes('setting')){response=ctx.responses['setting'];setTimeout(()=>showPage('settings'),1200);}
+  }
+  if(!response){for(const[k,v]of Object.entries(ctx.responses)){if(k!=='default'&&text.includes(k)){response=v;break;}}}
+  if(!response)response=ctx.responses['default'];
+  addBotMessage(response,750);
+  setTimeout(()=>{
+    if(chatContext==='public')setQuickReplies(["💰 Pay rate","📋 Requirements","🚀 Apply","📍 Locations"]);
+    else if(chatContext==='promoter')setQuickReplies(["📅 My Bookings","💰 My Pay","⚡ Active Shift","📝 Report"]);
+    else setQuickReplies(["📅 Bookings","📊 BI Dashboard","📋 Applications","⚙️ Settings"]);
+  },900);
+}
+function getTime(){return new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});}
+
+// Boot chatbot on public screens
+document.getElementById('chat-fab').style.display='flex';
+setTimeout(()=>{ document.getElementById('chat-badge').style.display='flex'; },2000);
+</script>
+</body>
+</html>

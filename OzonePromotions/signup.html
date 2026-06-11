@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apply as Promoter — Ozone Promotions</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+body {
+  min-height:100vh;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,.06) 0%, transparent 55%),
+              radial-gradient(ellipse at 80% 90%, rgba(124,58,237,.05) 0%, transparent 50%),
+              var(--oz-bg);
+  display:flex; flex-direction:column; align-items:center; padding:2.5rem 1.5rem 4rem;
+}
+
+/* Top nav */
+.sg-nav {
+  width:100%; max-width:720px; display:flex; align-items:center;
+  justify-content:space-between; margin-bottom:2.5rem;
+}
+.sg-brand { font-family:var(--font-h); font-size:1.2rem; font-weight:800;
+  background:linear-gradient(135deg,var(--oz-accent),var(--oz-accent2));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.sg-back  { font-size:.82rem; color:var(--oz-muted); text-decoration:none; display:flex; align-items:center; gap:5px; }
+.sg-back:hover { color:var(--oz-accent); }
+
+/* Wrap */
+.sg-wrap { width:100%; max-width:720px; }
+
+/* Steps */
+.step-row { display:flex; align-items:center; margin-bottom:2.5rem; }
+.step-item { display:flex; align-items:center; gap:8px; }
+.step-circle { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-h); font-size:.75rem; font-weight:700; border:2px solid var(--oz-dim); color:var(--oz-dim); transition:all .3s; }
+.step-circle.active { border-color:var(--oz-accent); color:var(--oz-accent); background:rgba(0,212,255,.08); }
+.step-circle.done   { border-color:var(--oz-green);  color:var(--oz-green);  background:rgba(16,185,129,.08); }
+.step-label { font-size:.78rem; color:var(--oz-dim); font-weight:500; }
+.step-label.active { color:var(--oz-accent); }
+.step-label.done   { color:var(--oz-green); }
+.step-connector { flex:1; min-width:40px; height:1px; background:var(--oz-border); margin:0 12px; }
+.step-connector.done { background:var(--oz-green); }
+
+/* Steps content */
+.step-content { display:none; }
+.step-content.active { display:block; }
+
+/* Section heading */
+.sg-section-h { font-family:var(--font-h); font-size:.9rem; font-weight:700; margin-bottom:1rem; padding-bottom:.5rem; border-bottom:1px solid var(--oz-border); }
+.sg-h1  { font-family:var(--font-h); font-size:2.2rem; font-weight:800; margin-bottom:.4rem; }
+.sg-sub { font-size:.9rem; color:var(--oz-muted); margin-bottom:2rem; }
+
+/* Pay highlight */
+.pay-hi { background:rgba(16,185,129,.06); border:1px solid rgba(16,185,129,.2); border-radius:var(--r); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1.8rem; }
+.ph-amt   { font-family:var(--font-h); font-size:2rem; font-weight:800; color:var(--oz-green); }
+.ph-label { font-size:.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--oz-muted); font-weight:600; }
+.ph-note  { font-size:.76rem; color:var(--oz-dim); margin-top:2px; }
+.job-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1.8rem; }
+.ji-card  { background:rgba(255,255,255,.03); border:1px solid var(--oz-border); border-radius:var(--r); padding:14px; }
+.ji-icon  { font-size:1.2rem; margin-bottom:5px; }
+.ji-title { font-size:.8rem; font-weight:600; margin-bottom:3px; }
+.ji-body  { font-size:.75rem; color:var(--oz-muted); line-height:1.5; }
+
+/* Confirm screen */
+.confirm-box { background:rgba(16,185,129,.07); border:1px solid rgba(16,185,129,.2); border-radius:var(--r-lg); padding:2rem; text-align:center; margin-bottom:1.5rem; }
+.cb-icon  { font-size:2.5rem; margin-bottom:.5rem; }
+.cb-title { font-family:var(--font-h); font-size:1.1rem; font-weight:700; color:var(--oz-green); margin-bottom:.5rem; }
+.cb-body  { font-size:.84rem; color:var(--oz-muted); line-height:1.6; }
+
+/* Auth link */
+.auth-link { font-size:.82rem; color:var(--oz-dim); margin-top:1rem; text-align:center; }
+.auth-link a { color:var(--oz-accent); text-decoration:none; cursor:pointer; }
+.auth-link a:hover { text-decoration:underline; }
+
+/* Error */
+.form-error { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25); color:#f87171; font-size:.8rem; padding:9px 12px; border-radius:var(--r); margin-bottom:1rem; display:none; }
+.form-error.show { display:block; }
+
+@media(max-width:600px){ .job-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<nav class="sg-nav">
+  <div class="sg-brand">⬡ OZONE</div>
+  <a href="login.html" class="sg-back">← Back to Sign In</a>
+</nav>
+
+<div class="sg-wrap">
+  <!-- STEPS indicator -->
+  <div class="step-row" id="step-indicator">
+    <div class="step-item">
+      <div class="step-circle active" id="circ-1">1</div>
+      <div class="step-label active" id="lbl-1">About the Role</div>
+    </div>
+    <div class="step-connector" id="conn-1-2"></div>
+    <div class="step-item">
+      <div class="step-circle" id="circ-2">2</div>
+      <div class="step-label" id="lbl-2">Your Details</div>
+    </div>
+    <div class="step-connector" id="conn-2-3"></div>
+    <div class="step-item">
+      <div class="step-circle" id="circ-3">3</div>
+      <div class="step-label" id="lbl-3">Password</div>
+    </div>
+  </div>
+
+  <!-- STEP 1 — Role info -->
+  <div class="step-content active" id="step-1">
+    <h1 class="sg-h1">In-Store Brand Promoter</h1>
+    <p class="sg-sub">Represent Ozone beauty products at leading retail stores across South Africa.</p>
+    <div class="pay-hi">
+      <div>
+        <div class="ph-label">Your Rate</div>
+        <div class="ph-amt">R65<span style="font-size:1rem;font-weight:500;color:var(--oz-muted)">/hr</span></div>
+        <div class="ph-note">R520 per 8-hour shift · Paid within 5 business days</div>
+      </div>
+      <div style="text-align:right">
+        <div class="ph-label">Typical Shift</div>
+        <div style="font-family:var(--font-h);font-size:1.3rem;font-weight:700;margin:3px 0">8 hrs</div>
+        <div class="ph-note">Flexible scheduling</div>
+      </div>
+    </div>
+    <div class="job-grid">
+      <div class="ji-card"><div class="ji-icon">📍</div><div class="ji-title">Locations</div><div class="ji-body">Clicks, Dis-Chem, Checkers, Pick n Pay — KZN, Gauteng &amp; Western Cape</div></div>
+      <div class="ji-card"><div class="ji-icon">🕐</div><div class="ji-title">Shift Hours</div><div class="ji-body">Flexible 8-hour shifts. Morning or afternoon. Schedule sent via app.</div></div>
+      <div class="ji-card"><div class="ji-icon">📋</div><div class="ji-title">Requirements</div><div class="ji-body">Matric or equivalent. Customer-facing experience preferred. Smartphone required.</div></div>
+      <div class="ji-card"><div class="ji-icon">📦</div><div class="ji-title">Your Duties</div><div class="ji-body">Sampling, stock checks, 10+ interaction photos, end-of-shift report.</div></div>
+      <div class="ji-card"><div class="ji-icon">🚀</div><div class="ji-title">How it Works</div><div class="ji-body">Apply → Approval → Onboarding → Book shifts and go live.</div></div>
+      <div class="ji-card"><div class="ji-icon">💬</div><div class="ji-title">Questions?</div><div class="ji-body">Chat with our assistant in the bottom-right corner for instant answers.</div></div>
+    </div>
+    <button class="btn-primary" onclick="goStep(2)">I'm Interested — Apply Now →</button>
+  </div>
+
+  <!-- STEP 2 — Personal details -->
+  <div class="step-content" id="step-2">
+    <h1 class="sg-h1">Your Application</h1>
+    <p class="sg-sub">All fields required unless marked optional.</p>
+
+    <div class="form-error" id="step2-error"></div>
+
+    <div class="sg-section-h">Personal Information</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>First Name</label>
+        <input type="text" id="reg-firstname" placeholder="e.g. Zanele">
+      </div>
+      <div class="form-group">
+        <label>Last Name</label>
+        <input type="text" id="reg-lastname" placeholder="e.g. Dlamini">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" id="reg-email" placeholder="your@email.com">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="reg-phone" placeholder="+27 82 000 0000">
+      </div>
+      <div class="form-group">
+        <label>SA ID Number</label>
+        <input type="text" id="reg-id" placeholder="13-digit SA ID" maxlength="13"
+               oninput="handleIDInput(this)">
+        <div class="id-feedback" id="id-feedback"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Preferred Region</label>
+        <select id="reg-region">
+          <option value="">Select region…</option>
+          <option>KwaZulu-Natal</option>
+          <option>Gauteng</option>
+          <option>Western Cape</option>
+          <option>Eastern Cape</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Experience Level</label>
+        <select id="reg-exp">
+          <option value="">Select…</option>
+          <option>No experience (willing to learn)</option>
+          <option>Less than 1 year</option>
+          <option>1–2 years</option>
+          <option>3+ years</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Why do you want to join Ozone? <span style="color:var(--oz-dim);text-transform:none;font-size:.68rem">(min 30 words)</span></label>
+      <textarea id="reg-motivation" placeholder="Tell us about yourself and why you'd make a great Ozone brand promoter…"></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="goStep(1)" style="flex:0 0 auto">← Back</button>
+      <button class="btn-primary" onclick="validateStep2()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 — Password -->
+  <div class="step-content" id="step-3">
+    <h1 class="sg-h1" style="font-size:1.6rem">Create Your Password</h1>
+    <p class="sg-sub">Used to sign in once your application is approved.</p>
+
+    <div class="form-error" id="step3-error"></div>
+
+    <!-- Summary of details -->
+    <div id="details-summary" style="background:var(--oz-card);border:1px solid var(--oz-border);border-radius:var(--r-lg);padding:1.2rem 1.4rem;margin-bottom:1.5rem">
+      <div class="card-title">Application Summary</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.84rem">
+        <div><span style="color:var(--oz-dim)">Name: </span><span id="sum-name"></span></div>
+        <div><span style="color:var(--oz-dim)">Email: </span><span id="sum-email"></span></div>
+        <div><span style="color:var(--oz-dim)">Phone: </span><span id="sum-phone"></span></div>
+        <div><span style="color:var(--oz-dim)">Region: </span><span id="sum-region"></span></div>
+        <div><span style="color:var(--oz-dim)">ID No: </span><span id="sum-id"></span></div>
+        <div><span style="color:var(--oz-dim)">ID Valid: </span><span id="sum-id-status"></span></div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="Min. 8 characters"
+               oninput="checkPasswordStrength(this.value)">
+        <div class="id-feedback" id="pw-strength"></div>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="reg-confirm" placeholder="Repeat password">
+      </div>
+    </div>
+
+    <!-- Password requirements -->
+    <div style="background:var(--oz-surface2);border:1px solid var(--oz-border);border-radius:var(--r);padding:10px 14px;margin-bottom:1.2rem;font-size:.78rem;color:var(--oz-muted)">
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:6px">Password Requirements</div>
+      <div id="req-len"  class="pw-req">✗ At least 8 characters</div>
+      <div id="req-upper" class="pw-req">✗ At least one uppercase letter</div>
+      <div id="req-num"  class="pw-req">✗ At least one number</div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="goStep(2)" style="flex:0 0 auto">← Back</button>
+      <button class="btn-primary" id="submit-btn" onclick="submitApplication()">Submit Application →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4 — Confirmation -->
+  <div class="step-content" id="step-confirm">
+    <div id="step-indicator" style="display:none"></div>
+    <div class="confirm-box">
+      <div class="cb-icon">📩</div>
+      <div class="cb-title">Application Submitted!</div>
+      <div class="cb-body">
+        Thank you for applying. We've sent a confirmation to
+        <strong id="confirm-email" style="color:var(--oz-accent)"></strong>.<br><br>
+        Our team reviews applications within <strong style="color:var(--oz-text)">2–3 business days</strong>.
+      </div>
+    </div>
+    <div style="background:var(--oz-card);border:1px solid var(--oz-border);border-radius:var(--r);padding:14px;margin-bottom:1.5rem">
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:8px">What happens next</div>
+      <div style="font-size:.8rem;color:var(--oz-muted);display:flex;flex-direction:column;gap:6px">
+        <div>1. ✉️ Verify your email address</div>
+        <div>2. 🔍 Our manager reviews your application</div>
+        <div>3. ✅ Approval notification sent</div>
+        <div>4. 🚀 Log in and start booking shifts!</div>
+      </div>
+    </div>
+    <a href="login.html"><button class="btn-primary">Back to Sign In</button></a>
+  </div>
+
+  <div class="auth-link"><a href="login.html">Already have an account? Sign in</a></div>
+</div>
+
+<!-- Chatbot -->
+<button class="chat-fab" onclick="toggleChat()">
+  💬<span class="chat-badge" id="chat-badge" style="display:none">1</span>
+</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="ch-avatar">🤖</div>
+    <div><div class="ch-name">Ozone Assistant</div><div class="ch-status">● Online</div></div>
+    <button class="ch-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-quick-replies" id="chat-qr"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="javascript/supabase.js"></script>
+<script src="javascript/index.js"></script>
+<script>
+// ── STEP NAVIGATION ─────────────────────────────────────────
+let currentStep = 1;
+function goStep(n) {
+  document.getElementById('step-'+currentStep)?.classList.remove('active');
+  document.getElementById('step-confirm')?.classList.remove('active');
+  if (n === 'confirm') {
+    document.getElementById('step-confirm').classList.add('active');
+    document.getElementById('step-indicator').style.display = 'none';
+  } else {
+    document.getElementById('step-'+n)?.classList.add('active');
+    document.getElementById('step-indicator').style.display = '';
+    updateStepIndicator(n);
+  }
+  currentStep = n;
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+function updateStepIndicator(n) {
+  for (let i = 1; i <= 3; i++) {
+    const circ = document.getElementById('circ-'+i);
+    const lbl  = document.getElementById('lbl-'+i);
+    if (i < n)  { circ.className='step-circle done'; circ.textContent='✓'; lbl.className='step-label done'; }
+    else if (i === n) { circ.className='step-circle active'; circ.textContent=i; lbl.className='step-label active'; }
+    else        { circ.className='step-circle'; circ.textContent=i; lbl.className='step-label'; }
+  }
+  document.getElementById('conn-1-2').className = 'step-connector' + (n > 1 ? ' done' : '');
+  document.getElementById('conn-2-3').className = 'step-connector' + (n > 2 ? ' done' : '');
+}
+
+// ── SA ID LIVE VALIDATION ────────────────────────────────────
+function handleIDInput(input) {
+    const val = input.value.replace(/\D/g, '');
+    input.value = val;
+
+    const fb = document.getElementById('id-feedback');
+
+    input.classList.remove('id-valid', 'id-invalid');
+
+    if (!val) {
+        fb.innerHTML = '';
+        input.dataset.idValid = 'false';
+        return;
+    }
+
+    if (!/^\d{13}$/.test(val)) {
+        fb.innerHTML =
+            '<span class="id-feedback-error">✗ South African ID must contain exactly 13 digits</span>';
+
+        input.classList.add('id-invalid');
+        input.dataset.idValid = 'false';
+        return;
+    }
+
+    const result = window.OZ.validateSAID(val);
+
+    if (result.valid) {
+        fb.innerHTML =
+            `<span class="id-feedback-ok">
+                ✓ Valid SA ID · DOB: ${result.dob} · ${result.gender} · ${result.citizenship}
+            </span>`;
+
+        input.classList.add('id-valid');
+        input.dataset.idValid = 'true';
+    } else {
+        fb.innerHTML =
+            `<span class="id-feedback-error">✗ ${result.error}</span>`;
+
+        input.classList.add('id-invalid');
+        input.dataset.idValid = 'false';
+    }
+}
+
+// ── PASSWORD STRENGTH ────────────────────────────────────────
+function checkPasswordStrength(pw) {
+  const reqLen   = document.getElementById('req-len');
+  const reqUpper = document.getElementById('req-upper');
+  const reqNum   = document.getElementById('req-num');
+  const ok = s => s ? 'color:var(--oz-green)' : 'color:var(--oz-red)';
+  const icon = s => s ? '✓' : '✗';
+  const len   = pw.length >= 8;
+  const upper = /[A-Z]/.test(pw);
+  const num   = /[0-9]/.test(pw);
+  reqLen.textContent   = icon(len)   + ' At least 8 characters';   reqLen.style   = ok(len);
+  reqUpper.textContent = icon(upper) + ' At least one uppercase';  reqUpper.style = ok(upper);
+  reqNum.textContent   = icon(num)   + ' At least one number';     reqNum.style   = ok(num);
+  const score = [len,upper,num].filter(Boolean).length;
+  const sb = document.getElementById('pw-strength');
+  if (!pw) { sb.innerHTML=''; return; }
+  if (score === 1) sb.innerHTML=`<span class="id-feedback-error">Weak password</span>`;
+  else if (score === 2) sb.innerHTML=`<span class="id-feedback-neutral">Fair password</span>`;
+  else sb.innerHTML=`<span class="id-feedback-ok">Strong password ✓</span>`;
+}
+
+// ── STEP 2 VALIDATION ────────────────────────────────────────
+function validateStep2() {
+  const errEl = document.getElementById('step2-error');
+  errEl.classList.remove('show');
+  const firstName = document.getElementById('reg-firstname').value.trim();
+  const lastName  = document.getElementById('reg-lastname').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const phone     = document.getElementById('reg-phone').value.trim();
+  const idNum     = document.getElementById('reg-id').value.trim();
+  const region    = document.getElementById('reg-region').value;
+  const exp       = document.getElementById('reg-exp').value;
+  const motivation= document.getElementById('reg-motivation').value.trim();
+
+  if (!firstName || !lastName) { showErr('step2-error','Please enter your first and last name.'); return; }
+  if (!email || !email.includes('@')) { showErr('step2-error','Please enter a valid email address.'); return; }
+  if (!phone) { showErr('step2-error','Please enter your phone number.'); return; }
+
+  // SA ID validation
+  if (!idNum) { showErr('step2-error','Please enter your SA ID number.'); return; }
+  const idResult = window.OZ.validateSAID(idNum);
+  if (!idResult.valid) { showErr('step2-error','SA ID number: ' + idResult.error); return; }
+
+  if (!region) { showErr('step2-error','Please select your preferred region.'); return; }
+  if (!exp)    { showErr('step2-error','Please select your experience level.'); return; }
+  const wordCount = motivation.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 30) { showErr('step2-error',`Motivation is too short — ${wordCount} words entered, minimum 30 required.`); return; }
+
+  // Populate summary on step 3
+  document.getElementById('sum-name').textContent   = firstName + ' ' + lastName;
+  document.getElementById('sum-email').textContent  = email;
+  document.getElementById('sum-phone').textContent  = phone;
+  document.getElementById('sum-region').textContent = region;
+  document.getElementById('sum-id').textContent     = idNum;
+  document.getElementById('sum-id-status').innerHTML= `<span class="id-feedback-ok">✓ Valid — ${idResult.dob} · ${idResult.gender}</span>`;
+
+  goStep(3);
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ── SUBMIT ───────────────────────────────────────────────────
+async function submitApplication() {
+  const errEl   = document.getElementById('step3-error');
+  errEl.classList.remove('show');
+
+  const password = document.getElementById('reg-password').value;
+  const confirm  = document.getElementById('reg-confirm').value;
+
+  // Password validation
+  if (password.length < 8)      { showErr('step3-error','Password must be at least 8 characters.'); return; }
+  if (!/[A-Z]/.test(password))  { showErr('step3-error','Password must contain at least one uppercase letter.'); return; }
+  if (!/[0-9]/.test(password))  { showErr('step3-error','Password must contain at least one number.'); return; }
+  if (password !== confirm)      { showErr('step3-error','Passwords do not match.'); return; }
+
+  const email      = document.getElementById('reg-email').value.trim();
+  const firstName  = document.getElementById('reg-firstname').value.trim();
+  const lastName   = document.getElementById('reg-lastname').value.trim();
+  const phone      = document.getElementById('reg-phone').value.trim();
+  const idNumber   = document.getElementById('reg-id').value.trim();
+  const region     = document.getElementById('reg-region').value;
+  const experience = document.getElementById('reg-exp').value;
+  const motivation = document.getElementById('reg-motivation').value.trim();
+
+  const submitBtn = document.getElementById('submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting…';
+
+  try {
+    const db = window.supabaseClient;
+
+    // 1. Create Supabase Auth account
+    const { data: authData, error: authErr } = await db.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { first_name: firstName, last_name: lastName }
+      }
+    });
+
+    if (authErr) {
+      // Common: email already registered
+      if (authErr.message.toLowerCase().includes('already registered')) {
+        showErr('step3-error', 'An account with this email already exists. Please sign in instead.');
+      } else {
+        showErr('step3-error', authErr.message);
+      }
+      return;
+    }
+
+    const authUserId = authData.user?.id;
+
+    // 2. Insert application record
+    const { error: appErr } = await db
+      .from('applications')
+      .insert({
+        first_name:       firstName,
+        last_name:        lastName,
+        email,
+        phone,
+        id_number:        idNumber,
+        region,
+        experience_band:  experience,
+        motivation,
+        status:           'pending',
+        // ref_number is auto-generated by the DB trigger
+      });
+
+    if (appErr) {
+      // Auth user was created but application insert failed — sign them out
+      await db.auth.signOut();
+      showErr('step3-error', 'Application could not be saved. Please try again. (' + appErr.message + ')');
+      return;
+    }
+
+    // 3. Success — show confirmation screen
+    document.getElementById('confirm-email').textContent = email;
+    document.getElementById('step-indicator').style.display = 'none';
+    goStep('confirm');
+
+    // Sign out so they go through login after approval
+    await db.auth.signOut();
+
+  } catch (err) {
+    showErr('step3-error', 'Unexpected error: ' + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Application';
+  }
+}
+
+// ── CHATBOT ─────────────────────────────────────────────────
+let chatOpen = false;
+const KB = {
+  greeting:"Hi! 👋 I'm the Ozone assistant. Ask me anything about the promoter role.",
+  quickReplies:["💰 What's the pay?","📋 Requirements?","📍 Locations?","🆔 SA ID question"],
+  responses:{
+    "pay":"Current rate is **R65/hour**. An 8-hour shift pays **R520**. Paid within 5 business days after sign-off.",
+    "earn":"R65/hr. Standard shift = R520 for 8 hours.",
+    "requirement":"You need: ✅ Matric ✅ Customer experience (preferred) ✅ Smartphone ✅ Professional presentation.",
+    "location":"We activate at Clicks, Dis-Chem, Checkers & Pick n Pay across KZN, Gauteng & Western Cape.",
+    "store":"Stores in KwaZulu-Natal, Gauteng and Western Cape.",
+    "id":"You'll need your 13-digit SA ID number. The system validates it automatically — it checks the date, Luhn digit, and citizenship field.",
+    "valid":"SA ID validation checks: correct 13-digit format, valid birth date, citizenship digit (0 or 1), and a Luhn checksum on all digits.",
+    "luhn":"The Luhn algorithm verifies the last digit of your SA ID is mathematically consistent with the first 12.",
+    "shift":"Standard shifts are 8 hours — morning or afternoon. Schedule sent via the app.",
+    "transport":"Promoters arrange their own transport. Store locations are shown before you accept.",
+    "review":"Applications are reviewed within 2–3 business days. You'll get an email with the outcome.",
+    "default":"I can help with: pay rates, requirements, locations, ID validation questions, and how the application works."
+  }
+};
+function toggleChat() {
+  chatOpen=!chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
+  document.getElementById('chat-badge').style.display='none';
+  if(chatOpen&&document.getElementById('chat-messages').children.length===0){addBot(KB.greeting);setQR(KB.quickReplies);}
+}
+function addBot(text,delay=0){
+  const msgs=document.getElementById('chat-messages');
+  if(delay>0){const t=document.createElement('div');t.className='chat-msg bot';t.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';t.id='typ';msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;setTimeout(()=>{document.getElementById('typ')?.remove();appendBot(text);},delay);}
+  else appendBot(text);
+}
+function appendBot(text){const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg bot';el.innerHTML=`<div class="chat-bubble">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;}
+function setQR(chips){document.getElementById('chat-qr').innerHTML=chips.map(c=>`<span class="qr-chip" onclick="handleQR('${c}')">${c}</span>`).join('');}
+function handleQR(text){document.getElementById('chat-qr').innerHTML='';sendMsg(text);}
+function sendChat(){const i=document.getElementById('chat-input'),t=i.value.trim();if(!t)return;i.value='';sendMsg(t);}
+function sendMsg(text){const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg user';el.innerHTML=`<div class="chat-bubble">${text}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;const q=text.toLowerCase();let r=null;for(const[k,v]of Object.entries(KB.responses)){if(k!=='default'&&q.includes(k)){r=v;break;}}if(!r)r=KB.responses['default'];addBot(r,750);setTimeout(()=>setQR(["💰 Pay","📋 Requirements","🆔 ID help","📍 Locations"]),900);}
+setTimeout(()=>{document.getElementById('chat-badge').style.display='flex';},2000);
+</script>
+</body>
+</html>

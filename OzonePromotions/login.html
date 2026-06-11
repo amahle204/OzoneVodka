@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — Ozone Promotions</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+body { display:flex; align-items:stretch; min-height:100vh; }
+.login-left {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:3rem 4rem;
+  background:var(--oz-surface); border-right:1px solid var(--oz-border);
+}
+.login-right {
+  flex:1; display:flex; align-items:center; justify-content:center; padding:3rem;
+  background:radial-gradient(ellipse at 40% 40%,rgba(0,212,255,.05) 0%,transparent 60%),
+             radial-gradient(ellipse at 70% 80%,rgba(124,58,237,.05) 0%,transparent 60%),
+             var(--oz-bg);
+}
+.brand-big  { font-family:var(--font-h); font-size:2.8rem; font-weight:800; background:linear-gradient(135deg,var(--oz-accent),var(--oz-accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.brand-tag  { font-size:.72rem; color:var(--oz-dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:3rem; }
+.form-wrap  { width:100%; max-width:360px; }
+.form-title { font-family:var(--font-h); font-size:1.3rem; font-weight:700; margin-bottom:.3rem; }
+.form-sub   { font-size:.84rem; color:var(--oz-muted); margin-bottom:1.6rem; }
+.auth-link  { font-size:.82rem; color:var(--oz-dim); margin-top:.9rem; }
+.auth-link a { color:var(--oz-accent); text-decoration:none; cursor:pointer; }
+.auth-link a:hover { text-decoration:underline; }
+.demo-hint  { text-align:center; margin-top:.5rem; font-size:.7rem; color:var(--oz-dim); }
+.error-msg  { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25); color:#f87171; font-size:.8rem; padding:9px 12px; border-radius:var(--r); margin-bottom:1rem; display:none; }
+.error-msg.show { display:block; }
+
+/* RIGHT SIDE */
+.rrc { text-align:left; max-width:440px; }
+.rrc-eyebrow { font-size:.7rem; letter-spacing:2px; text-transform:uppercase; color:var(--oz-accent); font-weight:600; margin-bottom:1rem; }
+.rrc-h2 { font-family:var(--font-h); font-size:2rem; font-weight:800; line-height:1.2; margin-bottom:1.2rem; }
+.rrc-bullets { display:flex; flex-direction:column; gap:10px; margin-bottom:2rem; }
+.rrc-bullet { display:flex; align-items:flex-start; gap:10px; font-size:.86rem; color:var(--oz-muted); line-height:1.5; }
+.rrc-dot { width:20px; height:20px; border-radius:50%; background:rgba(0,212,255,.12); border:1px solid rgba(0,212,255,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:.65rem; color:var(--oz-accent); margin-top:1px; }
+.apply-box { background:var(--oz-card); border:1px solid var(--oz-border2); border-radius:var(--r-lg); padding:1.4rem 1.6rem; }
+.apply-box-title { font-family:var(--font-h); font-size:.88rem; font-weight:700; margin-bottom:.3rem; }
+.apply-box-sub   { font-size:.78rem; color:var(--oz-muted); margin-bottom:.85rem; }
+@media(max-width:860px){ .login-right{display:none;} .login-left{padding:2rem;} }
+</style>
+</head>
+<body>
+
+<div class="login-left">
+  <div style="margin-bottom:2.5rem; text-align:center">
+    <div class="brand-big">⬡ OZONE</div>
+    <div class="brand-tag">Promotions Management</div>
+  </div>
+  <div class="form-wrap">
+    <div class="form-title">Welcome back</div>
+    <div class="form-sub">Sign in to your account to continue.</div>
+
+    <div class="error-msg" id="login-error">Invalid credentials. Please try again.</div>
+
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Sign In →</button>
+
+    <div class="auth-link">New promoter? <a href="signup.html">Apply here</a></div>
+  </div>
+</div>
+
+<div class="login-right">
+  <div class="rrc">
+    <div class="rrc-eyebrow">For Promoters</div>
+    <div class="rrc-h2">Your shifts.<br>Your earnings.<br>Your proof.</div>
+    <div class="rrc-bullets">
+      <div class="rrc-bullet"><div class="rrc-dot">✓</div>View and respond to booking requests</div>
+      <div class="rrc-bullet"><div class="rrc-dot">✓</div>QR code check-in with GPS verification</div>
+      <div class="rrc-bullet"><div class="rrc-dot">✓</div>Upload 10+ interaction photos per shift</div>
+      <div class="rrc-bullet"><div class="rrc-dot">✓</div>Submit feedback reports on the go</div>
+      <div class="rrc-bullet"><div class="rrc-dot">✓</div>Track all your earnings in one place</div>
+    </div>
+    <div class="apply-box">
+      <div class="apply-box-title">Not yet a promoter?</div>
+      <div class="apply-box-sub">Applications take 5 minutes. Approval within 2–3 business days.</div>
+      <a href="signup.html"><button class="btn btn-outline">Apply Now →</button></a>
+    </div>
+  </div>
+</div>
+
+<!-- Chatbot FAB -->
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()">
+  💬<span class="chat-badge" id="chat-badge" style="display:none">1</span>
+</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="ch-avatar">🤖</div>
+    <div><div class="ch-name">Ozone Assistant</div><div class="ch-status">● Online</div></div>
+    <button class="ch-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-quick-replies" id="chat-qr"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="javascript/supabase.js"></script>
+<script src="javascript/index.js"></script>
+<script>
+// ── AUTH ──────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-password').value;
+  const btn   = document.querySelector('.btn-primary');
+  const errEl = document.getElementById('login-error');
+
+  errEl.classList.remove('show');
+
+  if (!email || !pw) {
+    errEl.textContent = 'Please enter your email and password.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  // Disable button while signing in
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    // 1. Supabase Auth sign-in
+    const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+      email,
+      password: pw,
+    });
+
+    if (error) {
+      errEl.textContent = error.message === 'Invalid login credentials'
+        ? 'Incorrect email or password. Please try again.'
+        : error.message;
+      errEl.classList.add('show');
+      return;
+    }
+
+    // 2. Fetch the user's role from public.users
+    const { data: profile, error: profErr } = await window.supabaseClient
+      .from('users')
+      .select('role, first_name, last_name')
+      .eq('supabase_auth_id', data.user.id)
+      .single();
+
+    if (profErr || !profile) {
+      errEl.textContent = 'Account found but profile is missing. Contact support.';
+      errEl.classList.add('show');
+      await window.supabaseClient.auth.signOut();
+      return;
+    }
+
+    // 3. Redirect based on role (auth-session.js will re-verify on the next page)
+    window.location.href = profile.role === 'manager' ? 'managerDash.html' : 'promoterDash.html';
+
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In →';
+  }
+}
+
+// ── CHATBOT (public context) ──────────────────────────────────
+let chatOpen = false;
+const KB = {
+  greeting: "Hi! 👋 I'm the Ozone assistant. I can answer questions about the promoter role, pay, and how to apply.",
+  quickReplies: ["💰 What's the pay?","📋 Requirements?","📍 Locations?","🕐 Shift hours?","🚀 How to apply?"],
+  responses: {
+    "pay":        "Current rate is **R65/hour**. An 8-hour shift pays **R520**. Paid within 5 business days after sign-off.",
+    "rate":       "Current rate is **R65/hour**. Standard shift = R520.",
+    "earn":       "You earn R65/hr. One 8-hour shift = R520.",
+    "requirement":"You need: ✅ Matric ✅ Customer-facing experience (preferred) ✅ A smartphone ✅ Professional appearance.",
+    "store":      "We activate at Clicks, Dis-Chem, Checkers & Pick n Pay across KZN, Gauteng & Western Cape.",
+    "location":   "Stores across KwaZulu-Natal, Gauteng, and Western Cape.",
+    "shift":      "Shifts are 8 hours — morning or afternoon. Schedule sent via app in advance.",
+    "hours":      "Standard shift is 8 hours. Morning (09:00–17:00) or afternoon (10:00–18:00).",
+    "apply":      "Click **Apply here** below the sign-in form, or go to the application page to get started.",
+    "how":        "Go to the application page, fill in your details and a short motivation (min 30 words), set a password, and submit.",
+    "review":     "Applications reviewed within 2–3 business days. You'll receive an email with the outcome.",
+    "id":         "A valid South African 13-digit ID number is required when you apply.",
+    "age":        "You must be 18 or older to apply.",
+    "transport":  "Promoters arrange their own transport. Store locations are shown in advance.",
+    "default":    "I can help with: pay rates, requirements, shift times, store locations, and how to apply. What would you like to know?"
+  }
+};
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open', chatOpen);
+  document.getElementById('chat-badge').style.display = 'none';
+  if (chatOpen && document.getElementById('chat-messages').children.length === 0) {
+    addBot(KB.greeting); setQR(KB.quickReplies);
+  }
+}
+function addBot(text, delay=0) {
+  const msgs = document.getElementById('chat-messages');
+  if (delay > 0) {
+    const t = document.createElement('div'); t.className='chat-msg bot';
+    t.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>'; t.id='typ';
+    msgs.appendChild(t); msgs.scrollTop=msgs.scrollHeight;
+    setTimeout(()=>{ document.getElementById('typ')?.remove(); appendBot(text); }, delay);
+  } else appendBot(text);
+}
+function appendBot(text) {
+  const msgs=document.getElementById('chat-messages'), el=document.createElement('div');
+  el.className='chat-msg bot';
+  el.innerHTML=`<div class="chat-bubble">${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  msgs.appendChild(el); msgs.scrollTop=msgs.scrollHeight;
+}
+function setQR(chips) { document.getElementById('chat-qr').innerHTML=chips.map(c=>`<span class="qr-chip" onclick="handleQR('${c}')">${c}</span>`).join(''); }
+function handleQR(text) { document.getElementById('chat-qr').innerHTML=''; sendMsg(text); }
+function sendChat() { const i=document.getElementById('chat-input'), t=i.value.trim(); if(!t)return; i.value=''; sendMsg(t); }
+function sendMsg(text) {
+  const msgs=document.getElementById('chat-messages'), el=document.createElement('div');
+  el.className='chat-msg user';
+  el.innerHTML=`<div class="chat-bubble">${text}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  msgs.appendChild(el); msgs.scrollTop=msgs.scrollHeight;
+  const q=text.toLowerCase();
+  let r=null;
+  for(const[k,v]of Object.entries(KB.responses)){if(k!=='default'&&q.includes(k)){r=v;break;}}
+  if(!r)r=KB.responses['default'];
+  addBot(r,750);
+  setTimeout(()=>setQR(["💰 Pay rate","📋 Requirements","🚀 Apply","📍 Locations"]),900);
+}
+setTimeout(()=>{ document.getElementById('chat-badge').style.display='flex'; },2000);
+</script>
+</body>
+</html>

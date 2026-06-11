@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Promoter Dashboard — Ozone Promotions</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand"><div class="brand">⬡ OZONE</div><div class="sub">Promoter Portal</div></div>
+  <div class="user-badge">
+    <div class="user-avatar avatar-promoter" id="sb-av">ZD</div>
+    <div class="user-info"><div class="name" id="sb-name">Zanele Dlamini</div><span class="role-badge rb-promoter">Promoter</span></div>
+  </div>
+  <div id="nav-menu"></div>
+  <div class="sidebar-bottom"><button class="btn-logout" onclick="doLogout()">⏻ Sign Out</button></div>
+</nav>
+
+<!-- MAIN -->
+<main class="main-content">
+  <div class="page" id="page-dashboard"></div>
+  <div class="page" id="page-mybookings"></div>
+  <div class="page" id="page-myshift"></div>
+  <div class="page" id="page-mypay"></div>
+  <div class="page" id="page-reports"></div>
+  <div class="page" id="page-photos"></div>
+</main>
+
+<!-- SHIFT REPORT MODAL -->
+<div class="modal-overlay" id="modal-feedback">
+  <div class="modal">
+    <h2>📝 Submit Shift Report</h2>
+    <div class="form-group"><label>Customer Responses</label><textarea placeholder="How did customers respond to the product?"></textarea></div>
+    <div class="form-group"><label>Sales Observations</label><textarea placeholder="Estimated units sold or sampled…"></textarea></div>
+    <div class="form-group"><label>Stock Issues</label><textarea placeholder="Was stock sufficient? Anything running low?"></textarea></div>
+    <div class="form-group"><label>Challenges Experienced</label><textarea placeholder="Any issues during the activation?"></textarea></div>
+    <div class="form-group"><label>Overall Rating</label>
+      <select><option>⭐⭐⭐⭐⭐ Excellent</option><option>⭐⭐⭐⭐ Good</option><option>⭐⭐⭐ Average</option><option>⭐⭐ Below Average</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="OZ.closeModal('modal-feedback')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitFeedback()">Submit Report →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chatbot -->
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()">
+  💬<span class="chat-badge" id="chat-badge" style="display:none">!</span>
+</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="ch-avatar">🤖</div>
+    <div><div class="ch-name">Ozone Assistant</div><div class="ch-status">● Online · Promoter mode</div></div>
+    <button class="ch-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-quick-replies" id="chat-qr"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="javascript/supabase.js"></script>
+<script src="javascript/auth-session.js"></script>
+<script src="javascript/index.js"></script>
+<script>
+// @ts-nocheck
+// ── SESSION CHECK ─────────────────────────────────────────────
+let currentUser = { name:'Zanele Dlamini', initials:'ZD' };
+(async () => {
+  // TODO: Uncomment for live Supabase auth
+  // const user = await checkSession();
+  // if (!user) return;
+  const stored = sessionStorage.getItem('oz_user');
+  if (stored) {
+    const u = JSON.parse(stored);
+    currentUser = u;
+    document.getElementById('sb-name').textContent = u.name;
+    document.getElementById('sb-av').textContent   = u.initials || u.name.split(' ').map(w=>w[0]).join('');
+  }
+})();
+
+function doLogout() {
+  // await window.supabaseClient.auth.signOut();
+  sessionStorage.clear();
+  window.location.href = 'login.html';
+}
+
+// ── NAV ───────────────────────────────────────────────────────
+const NAV = [
+  { section:'My Work', items:[
+    { id:'dashboard', icon:'📊', label:'Dashboard' },
+    { id:'mybookings', icon:'📅', label:'My Bookings', dynamicBadgePending:true },
+    { id:'myshift', icon:'⚡', label:'Active Shift' },
+  ]},
+  { section:'Earnings', items:[
+    { id:'mypay', icon:'💰', label:'My Pay' },
+  ]},
+  { section:'Submissions', items:[
+    { id:'reports', icon:'📝', label:'My Reports' },
+    { id:'photos', icon:'📷', label:'My Photos' },
+  ]},
+];
+
+function buildNav() {
+  let html = '';
+  NAV.forEach(sec => {
+    html += `<div class="nav-section">${sec.section}</div>`;
+    sec.items.forEach(item => {
+      let badge = '';
+      if (item.dynamicBadgePending) {
+        const c = window.BOOKINGS.filter(b=>b.promoter==='Zanele Dlamini'&&b.status==='pending').length;
+        if (c > 0) badge = `<span class="nbadge nbadge-amber">${c}</span>`;
+      }
+      html += `<div class="nav-item" id="nav-${item.id}" onclick="showPage('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span>${badge}</div>`;
+    });
+  });
+  document.getElementById('nav-menu').innerHTML = html;
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  document.getElementById('nav-'+id)?.classList.add('active');
+  const r = { dashboard:renderDashboard, mybookings:renderMyBookings, myshift:renderMyShift, mypay:renderMyPay, reports:renderReports, photos:renderPhotos };
+  r[id]?.();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+function renderDashboard() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  const pending  = window.BOOKINGS.filter(b=>b.promoter==='Zanele Dlamini'&&b.status==='pending').length;
+  const upcoming = window.BOOKINGS.filter(b=>b.promoter==='Zanele Dlamini'&&b.status==='confirmed').length;
+  document.getElementById('page-dashboard').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Good morning, ${currentUser.name.split(' ')[0]} ☀️</h1><p>${new Date().toLocaleDateString('en-ZA',{weekday:'long',month:'long',day:'numeric'})}</p></div></div>
+  <div class="welcome-banner">
+    <div>
+      <h2>${pending > 0 ? `You have ${pending} pending booking${pending!==1?'s':''} 📬` : 'All caught up! ✅'}</h2>
+      <p>Next confirmed shift: 10 June at Clicks Gateway. Check-in starts at 09:00.</p>
+    </div>
+    <button class="checkin-btn" onclick="showPage('myshift')">⚡ Go to Active Shift</button>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Upcoming Shifts</div><div class="stat-value">${upcoming}</div><div class="stat-sub">Confirmed</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Pending Response</div><div class="stat-value" style="color:${pending>0?'var(--oz-accent3)':'inherit'}">${pending}</div><div class="stat-sub"><a onclick="showPage('mybookings')" style="color:var(--oz-accent);cursor:pointer;font-size:.72rem">View →</a></div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Shifts Completed</div><div class="stat-value">24</div><div class="stat-sub">This year</div></div>
+    ${S.showEarningsToPromoter ? `<div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Earnings This Month</div><div class="stat-value" style="font-size:1.4rem">${sym}${(6*S.hourlyRate*S.shiftHours).toLocaleString()}</div><div class="stat-sub">6 shifts × ${sym}${S.hourlyRate*S.shiftHours}</div></div>` : ''}
+  </div>
+  <div class="card"><div class="card-title">Notifications</div>
+    ${pending > 0 ? `<div class="notif-item pending"><div class="notif-dot" style="background:var(--oz-accent3)"></div><div><b>New Booking Request</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Clicks Westville — 17 June — ${sym}${S.hourlyRate*S.shiftHours} for ${S.shiftHours}hrs — <a onclick="showPage('mybookings')" style="color:var(--oz-accent);cursor:pointer">Accept or Decline</a></span></div></div>` : ''}
+    <div class="notif-item"><div class="notif-dot"></div><div><b>Booking Confirmed</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Clicks Gateway · 10 June · Aqua Body Mist</span></div></div>
+    <div class="notif-item"><div class="notif-dot" style="background:var(--oz-green)"></div><div><b>Payment Processed</b><br><span style="font-size:.78rem;color:var(--oz-muted)">Shift 03 June — ${sym}${S.hourlyRate*S.shiftHours} paid</span></div></div>
+  </div>`;
+}
+
+// ── MY BOOKINGS ───────────────────────────────────────────────
+function renderMyBookings() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  const period = window.period_mybookings || 'month';
+  const mine = OZ.filterByPeriod(window.BOOKINGS.filter(b=>b.promoter==='Zanele Dlamini'), 'date', period);
+
+  document.getElementById('page-mybookings').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>My Bookings</h1><p>Upcoming and past assignments</p></div></div>
+  <div class="filter-bar">${OZ.periodTabsHtml('mybookings','renderMyBookings()')}</div>
+  ${mine.length ? mine.map(b=>`
+  <div class="card" style="margin-bottom:.9rem;border-left:3px solid ${b.status==='confirmed'?'var(--oz-green)':b.status==='pending'?'var(--oz-accent3)':'var(--oz-red)'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem">
+      <div>
+        <div style="font-family:var(--font-h);font-size:.95rem;font-weight:700;margin-bottom:3px">${b.product}</div>
+        <div style="color:var(--oz-muted);font-size:.84rem">📍 ${b.store}</div>
+        <div style="color:var(--oz-muted);font-size:.84rem;margin-top:1px">🗓 ${b.date} · ${b.shift}</div>
+        <div style="margin-top:6px"><span class="pay-badge">💰 ${sym}${S.hourlyRate*S.shiftHours} for ${S.shiftHours}hrs · ${sym}${S.hourlyRate}/hr</span></div>
+        ${b.notes ? `<div style="margin-top:5px;font-size:.78rem;color:var(--oz-dim)">📌 ${b.notes}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px">
+        <span class="badge ${b.status==='confirmed'?'badge-green':b.status==='declined'?'badge-red':'badge-amber'}">${b.status}</span>
+        ${b.status==='pending' ? `<div style="display:flex;gap:5px">
+          <button class="btn btn-sm btn-success" onclick="OZ.toast('✅ Booking accepted! ${sym}${S.hourlyRate*S.shiftHours} confirmed.')">Accept</button>
+          <button class="btn btn-sm btn-danger" onclick="OZ.toast('Booking declined.')">Decline</button>
+        </div>` : ''}
+        ${b.status==='confirmed' ? `<button class="btn btn-sm btn-outline" onclick="showPage('myshift')">⚡ Go to Shift</button>` : ''}
+      </div>
+    </div>
+  </div>`).join('') : `<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No bookings for this period</div>`}`;
+}
+
+// ── MY SHIFT ──────────────────────────────────────────────────
+let shiftState = { checkedIn:false, photos:0, feedbackSubmitted:false };
+
+function renderMyShift() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  const c = shiftState.checkedIn, p = shiftState.photos, f = shiftState.feedbackSubmitted;
+  const canCheckout = c && p >= S.minPhotosPerShift && (!S.requireFeedbackBeforeCheckout || f);
+
+  document.getElementById('page-myshift').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Active Shift</h1><p>Check in, upload photos, submit your report</p></div></div>
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:1rem">
+      <div>
+        <div style="font-family:var(--font-h);font-size:1rem;font-weight:700">Clicks — Gateway</div>
+        <div style="color:var(--oz-muted);font-size:.82rem">Aqua Body Mist · 09:00–17:00</div>
+        <div style="margin-top:5px"><span class="pay-badge">💰 ${sym}${S.hourlyRate*S.shiftHours} for this shift</span></div>
+      </div>
+      <span class="badge badge-cyan" style="margin-left:auto">Today</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:.9rem">
+      <!-- STEP 1 -->
+      <div class="card" style="border:1px solid ${c?'var(--oz-green)':'var(--oz-border)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:600">Step 1 — Check In</div>
+            <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">Scan the store QR code to verify your location</div>
+          </div>
+          ${c ? '<span class="badge badge-green">✓ Checked in 09:02</span>' : '<button class="btn btn-success" onclick="doCheckin()">📲 Scan QR</button>'}
+        </div>
+        ${c ? `<div style="margin-top:.6rem;font-size:.75rem;color:var(--oz-muted)">📍 GPS: -29.7311, 31.0428 · Device: DEV-0042</div>` : ''}
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="card" style="border:1px solid ${p>=S.minPhotosPerShift?'var(--oz-green)':'var(--oz-border)'};opacity:${c?1:0.4}">
+        <div style="font-weight:600;margin-bottom:.4rem">Step 2 — Upload Photos <span style="font-size:.74rem;font-weight:400;color:var(--oz-muted)">(min ${S.minPhotosPerShift})</span></div>
+        <div class="photo-grid" style="margin-bottom:.65rem">
+          ${Array.from({length:S.minPhotosPerShift},(_,i)=>`<div class="photo-thumb ${i<p?'filled':''}" onclick="${c?'addPhoto()':''}">${i>=p?'<span style="font-size:.9rem">📷</span>':''}</div>`).join('')}
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.79rem;color:${p>=S.minPhotosPerShift?'var(--oz-green)':'var(--oz-muted)'}">${p}/${S.minPhotosPerShift} photos</span>
+          ${c && p < S.minPhotosPerShift ? '<button class="btn btn-sm btn-outline" onclick="addPhoto()">+ Upload Photo</button>' : ''}
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="card" style="border:1px solid ${f?'var(--oz-green)':'var(--oz-border)'};opacity:${c?1:0.4}">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:600">Step 3 — Feedback Report</div>
+            <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">${S.requireFeedbackBeforeCheckout?'Required before check-out':'Optional but recommended'}</div>
+          </div>
+          ${f ? '<span class="badge badge-green">✓ Submitted</span>' : `<button class="btn btn-outline" onclick="${c?"OZ.openModal('modal-feedback')":"OZ.toast('Check in first')"}"${!c?' disabled':''}>Submit Report</button>`}
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="card" style="opacity:${canCheckout?1:0.35}">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:600">Step 4 — Check Out</div>
+            <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">Complete all steps above to unlock</div>
+          </div>
+          <button class="btn btn-danger" onclick="doCheckout()"${!canCheckout?' disabled':''}>Sign Off Shift</button>
+        </div>
+        ${canCheckout ? `<div style="margin-top:.6rem;font-size:.75rem;color:var(--oz-muted)">Payment of <strong style="color:var(--oz-green)">${sym}${S.hourlyRate*S.shiftHours}</strong> will be processed within ${S.paymentTermsDays} business days.</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+function doCheckin() { shiftState.checkedIn=true; OZ.toast('📍 Check-in verified — GPS captured'); renderMyShift(); }
+function addPhoto()  { if(!shiftState.checkedIn||shiftState.photos>=window.SETTINGS.maxPhotosPerShift)return; shiftState.photos++; renderMyShift(); OZ.toast('📸 Photo '+shiftState.photos+' uploaded'); }
+function doCheckout(){ const S=window.SETTINGS,sym=S.currencySymbol; OZ.toast('✅ Shift complete! '+sym+(S.hourlyRate*S.shiftHours)+' will be paid within '+S.paymentTermsDays+' days.'); shiftState={checkedIn:false,photos:0,feedbackSubmitted:false}; setTimeout(renderMyShift,1500); }
+function submitFeedback(){ OZ.closeModal('modal-feedback'); shiftState.feedbackSubmitted=true; OZ.toast('📝 Report submitted!'); renderMyShift(); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ── MY PAY ────────────────────────────────────────────────────
+function renderMyPay() {
+  const S = window.SETTINGS, sym = S.currencySymbol;
+  const period = window.period_mypay || 'month';
+  document.getElementById('page-mypay').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>My Pay</h1><p>Earnings history and payment status</p></div></div>
+  <div class="filter-bar">${OZ.periodTabsHtml('mypay','renderMyPay()')}</div>
+  <div class="stats-grid" style="margin-bottom:1.4rem">
+    <div class="stat-card" style="--accent-color:var(--oz-green)"><div class="stat-label">Total Earned (2025)</div><div class="stat-value" style="font-size:1.4rem;color:var(--oz-green)">${sym}${(24*S.hourlyRate*S.shiftHours).toLocaleString()}</div><div class="stat-sub">24 shifts × ${sym}${S.hourlyRate*S.shiftHours}</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent)"><div class="stat-label">Your Rate</div><div class="stat-value" style="font-size:1.4rem">${sym}${S.hourlyRate}</div><div class="stat-sub">per hour · ${sym}${S.hourlyRate*S.shiftHours} per ${S.shiftHours}hr shift</div></div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Payment Terms</div><div class="stat-value" style="font-size:1.1rem">${S.paymentTermsDays} days</div><div class="stat-sub">After shift sign-off</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Recent Payments</div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Store</th><th>Shift</th><th>Hours</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+    ${[
+      {d:'2025-06-03',s:'Clicks — Gateway',sh:'09:00–17:00',h:S.shiftHours,paid:false},
+      {d:'2025-05-28',s:'Dis-Chem — Pavilion',sh:'10:00–18:00',h:S.shiftHours,paid:true},
+      {d:'2025-05-21',s:'Clicks — Westville',sh:'09:00–17:00',h:S.shiftHours,paid:true},
+      {d:'2025-05-14',s:'Pick n Pay — Musgrave',sh:'08:00–16:00',h:S.shiftHours,paid:true},
+    ].map(r=>`<tr>
+      <td>${r.d}</td><td>${r.s}</td>
+      <td style="font-size:.78rem;color:var(--oz-muted)">${r.sh}</td>
+      <td>${r.h} hrs</td>
+      <td style="font-weight:600;color:var(--oz-green)">${sym}${(r.h*S.hourlyRate).toLocaleString()}</td>
+      <td><span class="badge ${r.paid?'badge-green':'badge-amber'}">${r.paid?'Paid':'Processing'}</span></td>
+    </tr>`).join('')}
+    </tbody></table></div>
+  </div>
+  <div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);border-radius:var(--r);padding:12px 15px;margin-top:1rem;font-size:.82rem;color:var(--oz-muted)">
+    💡 Payments are processed within <strong style="color:var(--oz-text)">${S.paymentTermsDays} business days</strong> after your shift is signed off. Contact your manager for payment queries.
+  </div>`;
+}
+
+// ── REPORTS (promoter view) ───────────────────────────────────
+function renderReports() {
+  const period = window.period_reports || 'month';
+  let data = OZ.filterByPeriod(window.REPORTS, 'date', period).filter(r=>r.promoter==='Zanele Dlamini');
+
+  document.getElementById('page-reports').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>My Reports</h1><p>Your submitted shift reports</p></div></div>
+  <div class="filter-bar">${OZ.periodTabsHtml('reports','renderReports()')}</div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Store</th><th>Date</th><th>Rating</th><th>Customer Feedback</th><th>Sales</th><th>Issues</th></tr></thead><tbody>
+  ${data.length ? data.map(r=>`<tr>
+    <td>${r.store}</td><td>${r.date}</td>
+    <td><span class="badge ${r.rating==='Excellent'?'badge-green':'badge-cyan'}">${r.rating}</span></td>
+    <td style="font-size:.78rem;max-width:170px;color:var(--oz-muted)">${r.customers}</td>
+    <td style="font-size:.78rem;color:var(--oz-muted)">${r.sales}</td>
+    <td style="font-size:.78rem;color:${r.issues==='None'?'var(--oz-dim)':'var(--oz-orange)'}">${r.issues}</td>
+  </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--oz-dim);padding:2rem">No reports for this period</td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+// ── PHOTOS (promoter view) ────────────────────────────────────
+function renderPhotos() {
+  const S = window.SETTINGS;
+  const period = window.period_photos || 'month';
+  const data = OZ.filterByPeriod(window.ATTENDANCE, 'date', period).filter(a=>a.promoter==='Zanele Dlamini');
+
+  document.getElementById('page-photos').innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>My Photos</h1><p>Interaction photos — min ${S.minPhotosPerShift} per shift</p></div></div>
+  <div class="filter-bar">${OZ.periodTabsHtml('photos','renderPhotos()')}</div>
+  ${data.length ? data.map(a=>`<div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <div><span style="font-weight:600">${a.store}</span><span style="color:var(--oz-muted);font-size:.82rem;margin-left:8px">${a.date}</span></div>
+      <span class="badge ${a.photos>=S.minPhotosPerShift?'badge-green':'badge-amber'}">${a.photos} photos</span>
+    </div>
+    <div class="photo-grid">
+      ${Array.from({length:S.minPhotosPerShift},(_,i)=>`<div class="photo-thumb ${i<a.photos?'filled':''}">${i>=a.photos?'📷':''}</div>`).join('')}
+    </div>
+    ${a.photos<S.minPhotosPerShift?`<div style="margin-top:.65rem;font-size:.78rem;color:var(--oz-red)">⚠️ ${S.minPhotosPerShift-a.photos} more needed</div>`:''}
+  </div>`).join('') : `<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No photo records for this period</div>`}`;
+}
+
+// ── CHATBOT ───────────────────────────────────────────────────
+let chatOpen = false;
+const KB = {
+  greeting: `Hi ${currentUser.name.split(' ')[0]}! 👋 I'm here to help. Ask about your bookings, pay, shift steps, photos, or reports.`,
+  quickReplies: ["📅 My Bookings","💰 My Pay","⚡ Active Shift","📸 Upload photos","📝 Submit report"],
+  responses: {
+    "booking":   "Go to **My Bookings** in the sidebar to view and respond to your shift assignments.",
+    "pay":       ()=>`Your rate is **${window.SETTINGS.currencySymbol}${window.SETTINGS.hourlyRate}/hr** — **${window.SETTINGS.currencySymbol}${window.SETTINGS.hourlyRate*window.SETTINGS.shiftHours}** per shift. Check **My Pay** for your earnings history.`,
+    "earn":      ()=>`You earn ${window.SETTINGS.currencySymbol}${window.SETTINGS.hourlyRate}/hr. One ${window.SETTINGS.shiftHours}-hour shift = ${window.SETTINGS.currencySymbol}${window.SETTINGS.hourlyRate*window.SETTINGS.shiftHours}.`,
+    "paid":      ()=>`Payments are processed within ${window.SETTINGS.paymentTermsDays} business days after sign-off. Check **My Pay** for status.`,
+    "shift":     "Go to **Active Shift ⚡** in the sidebar. Follow the 4 steps: Check In → Photos → Report → Check Out.",
+    "check in":  "In **Active Shift**, tap **Scan QR** to verify your location and log check-in.",
+    "checkin":   "In **Active Shift**, tap **Scan QR** to verify your location and log check-in.",
+    "photo":     ()=>`In **Active Shift**, Step 2 — upload at least ${window.SETTINGS.minPhotosPerShift} photos per shift.`,
+    "report":    "In **Active Shift**, Step 3 — submit your Feedback Report before checking out.",
+    "checkout":  "Complete Steps 1–3 first (Check In, Photos, Report), then the Check Out button in Step 4 unlocks.",
+    "accept":    "In **My Bookings**, find the pending booking and tap **Accept**.",
+    "decline":   "In **My Bookings**, find the pending booking and tap **Decline**.",
+    "navigate":  "Sidebar: 📅 My Bookings · ⚡ Active Shift · 💰 My Pay · 📝 My Reports · 📷 My Photos",
+    "default":   "I can help with bookings, shift check-ins, photos, reports, and your pay. What do you need?"
+  }
+};
+function toggleChat(){chatOpen=!chatOpen;document.getElementById('chat-panel').classList.toggle('open',chatOpen);document.getElementById('chat-badge').style.display='none';if(chatOpen&&document.getElementById('chat-messages').children.length===0){addBot(KB.greeting);setQR(KB.quickReplies);}}
+function addBot(text,delay=0){const msgs=document.getElementById('chat-messages');if(delay>0){const t=document.createElement('div');t.className='chat-msg bot';t.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';t.id='typ';msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;setTimeout(()=>{document.getElementById('typ')?.remove();appendBot(text);},delay);}else appendBot(text);}
+function appendBot(text){const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg bot';const resolved=typeof text==='function'?text():text;el.innerHTML=`<div class="chat-bubble">${resolved.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;}
+function setQR(chips){document.getElementById('chat-qr').innerHTML=chips.map(c=>`<span class="qr-chip" onclick="handleQR('${c}')">${c}</span>`).join('');}
+function handleQR(text){document.getElementById('chat-qr').innerHTML='';sendMsg(text);}
+function sendChat(){const i=document.getElementById('chat-input'),t=i.value.trim();if(!t)return;i.value='';sendMsg(t);}
+function sendMsg(text){
+  const msgs=document.getElementById('chat-messages'),el=document.createElement('div');el.className='chat-msg user';
+  el.innerHTML=`<div class="chat-bubble">${text}</div><div class="chat-time">${new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
+  const q=text.toLowerCase();let r=null;
+  if(q.includes('booking')){r=KB.responses['booking'];setTimeout(()=>showPage('mybookings'),1200);}
+  else if(q.includes('pay')||q.includes('earn')){r=KB.responses['pay'];setTimeout(()=>showPage('mypay'),1200);}
+  else if(q.includes('shift')||q.includes('check in')||q.includes('checkin')){r=KB.responses['shift'];setTimeout(()=>showPage('myshift'),1200);}
+  else if(q.includes('photo')){r=KB.responses['photo'];setTimeout(()=>showPage('myshift'),1200);}
+  else if(q.includes('report')){r=KB.responses['report'];setTimeout(()=>showPage('myshift'),1200);}
+  else{for(const[k,v]of Object.entries(KB.responses)){if(k!=='default'&&q.includes(k)){r=v;break;}}}
+  if(!r)r=KB.responses['default'];
+  addBot(r,750);
+  setTimeout(()=>setQR(["📅 My Bookings","💰 My Pay","⚡ Active Shift","📝 Report"]),900);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────
+buildNav();
+showPage('dashboard');
+</script>
+</body>
+</html>
