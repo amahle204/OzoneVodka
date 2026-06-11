@@ -236,8 +236,8 @@ function buildNav() {
     sec.items.forEach(item => {
       let badge = '';
       if (item.dynamicBadge) {
-        const c = window.APPLICATIONS.filter(a=>a.status==='pending').length;
-        if (c > 0) badge = `<span class="nbadge nbadge-red">${c}</span>`;
+        const cnt = (_appData && _appData.length) ? _appData.filter(a=>a.status==='pending').length : (window.APPLICATIONS||[]).filter(a=>a.status==='pending').length;
+        if (cnt > 0) badge = `<span class="nbadge nbadge-red">${cnt}</span>`;
       }
       html += `<div class="nav-item" id="nav-${item.id}" onclick="showPage('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span>${badge}</div>`;
     });
@@ -272,7 +272,7 @@ function showPage(id) {
 
 // ── DASHBOARD ────────────────────────────────────────────────
 function renderDashboard() {
-  const p = window.APPLICATIONS.filter(a => a.status === 'pending').length;
+  const p = (_appData && _appData.length) ? _appData.filter(a => a.status === 'pending').length : (window.APPLICATIONS||[]).filter(a => a.status === 'pending').length;
 
   document.getElementById('page-dashboard').innerHTML = `
   <div class="page-header">
@@ -830,20 +830,43 @@ function renderPromoters() {
   </tbody></table></div></div>`;
 }
 
-// ── APPLICATIONS ──────────────────────────────────────────────
+// ── APPLICATIONS — Supabase wired ─────────────────────────────
 let currentDeclineId = null;
 let currentApplicationFilter = 'pending';
+let _appData = [];  // in-memory cache from DB
 
-function renderApplications() {
+async function renderApplications() {
+  const page = document.getElementById('page-applications');
   const search = document.getElementById('app-search')?.value || '';
-  const filtered = currentApplicationFilter === 'all' ? window.APPLICATIONS : window.APPLICATIONS.filter(a=>a.status===currentApplicationFilter);
-  let data = filtered;
-  if (search) data = data.filter(a=>(a.firstName+' '+a.lastName).toLowerCase().includes(search.toLowerCase()));
+
+  // Show skeleton while loading
+  page.innerHTML = `<div class="page-header"><div class="page-header-left"><h1>Applications</h1><p>Review, approve or decline promoter applications</p></div></div><div class="card" style="text-align:center;padding:2rem;color:var(--oz-muted)">⏳ Loading applications…</div>`;
+
+  const db = window.supabaseClient;
+  const { data, error } = await db
+    .from('applications')
+    .select('id, ref_number, first_name, last_name, email, phone, id_number, region, experience_band, motivation, status, applied_at, decline_reason, decline_notes')
+    .order('applied_at', { ascending: false });
+
+  if (error) {
+    page.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--oz-red)">❌ Failed to load applications: ${error.message}</div>`;
+    return;
+  }
+
+  _appData = data || [];
+
+  // Filter
+  let filtered = currentApplicationFilter === 'all' ? _appData : _appData.filter(a => a.status === currentApplicationFilter);
+  if (search) filtered = filtered.filter(a => (a.first_name + ' ' + a.last_name).toLowerCase().includes(search.toLowerCase()));
+
   const counts = {
-    pending:  window.APPLICATIONS.filter(a=>a.status==='pending').length,
-    approved: window.APPLICATIONS.filter(a=>a.status==='approved').length,
-    declined: window.APPLICATIONS.filter(a=>a.status==='declined').length,
+    pending:  _appData.filter(a => a.status === 'pending').length,
+    approved: _appData.filter(a => a.status === 'approved').length,
+    declined: _appData.filter(a => a.status === 'declined').length,
   };
+
+  // Update nav badge
+  buildNav();
 
   let html = `
   <div class="page-header">
@@ -859,7 +882,7 @@ function renderApplications() {
   </div>
   <div class="filter-bar">
     <input type="text" id="app-search" placeholder="🔍 Search applicant name…" value="${search}" oninput="renderApplications()">
-    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} application${data.length!==1?'s':''}</span>
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${filtered.length} application${filtered.length!==1?'s':''}</span>
   </div>
   <div class="stats-grid" style="margin-bottom:1rem">
     <div class="stat-card" style="--accent-color:var(--oz-accent3)"><div class="stat-label">Pending</div><div class="stat-value">${counts.pending}</div><div class="stat-sub">Awaiting review</div></div>
@@ -867,36 +890,87 @@ function renderApplications() {
     <div class="stat-card" style="--accent-color:var(--oz-red)"><div class="stat-label">Declined</div><div class="stat-value">${counts.declined}</div><div class="stat-sub">Not proceeding</div></div>
   </div>`;
 
-  if (!data.length) {
+  if (!filtered.length) {
     html += `<div class="card" style="text-align:center;padding:3rem"><div style="font-size:2rem;margin-bottom:.75rem">📭</div><div style="font-weight:600">No ${currentApplicationFilter} applications</div></div>`;
   } else {
-    data.forEach(app => {
-      const statusBadge = app.status==='approved' ? '<span class="badge badge-green">✅ Approved</span>' : app.status==='declined' ? '<span class="badge badge-red">❌ Declined</span>' : '<span class="badge badge-amber">⏳ Pending</span>';
+    filtered.forEach(app => {
+      const appliedDate = app.applied_at ? new Date(app.applied_at).toLocaleDateString('en-ZA') : '—';
+      const statusBadge = app.status==='approved'
+        ? '<span class="badge badge-green">✅ Approved</span>'
+        : app.status==='declined'
+          ? '<span class="badge badge-red">❌ Declined</span>'
+          : '<span class="badge badge-amber">⏳ Pending</span>';
       let actions = '';
-      if (app.status==='pending') actions = `<button class="btn btn-success" onclick="approveApp('${app.id}')">✅ Approve</button><button class="btn btn-danger" onclick="openDecline('${app.id}')">❌ Decline</button><button class="btn btn-ghost btn-sm" onclick="OZ.toast('Follow-up sent')">📧 Follow Up</button>`;
-      else if (app.status==='approved') actions = `<button class="btn btn-ghost btn-sm" onclick="OZ.toast('Welcome email resent')">Resend Welcome</button><button class="btn btn-warning btn-sm" onclick="revokeApp('${app.id}')">Revoke</button>`;
-      else actions = `<button class="btn btn-ghost btn-sm" onclick="reconsiderApp('${app.id}')">↩ Reconsider</button>`;
+      if (app.status==='pending') {
+        actions = `<button class="btn btn-success" onclick="approveApp('${app.id}','${app.first_name}','${app.last_name}')">✅ Approve</button><button class="btn btn-danger" onclick="openDecline('${app.id}')">❌ Decline</button>`;
+      } else if (app.status==='approved') {
+        actions = `<button class="btn btn-warning btn-sm" onclick="updateAppStatus('${app.id}','pending','Approval revoked.')">↩ Revoke</button>`;
+      } else {
+        actions = `<button class="btn btn-ghost btn-sm" onclick="updateAppStatus('${app.id}','pending','Moved back to pending.')">↩ Reconsider</button>`;
+      }
       html += `<div class="applicant-card">
-        <div class="ac-header"><div><div class="ac-name">${app.firstName} ${app.lastName}</div><div class="ac-meta">📧 ${app.email} · 📱 ${app.phone} · Applied: ${app.appliedDate}</div></div>${statusBadge}</div>
+        <div class="ac-header"><div><div class="ac-name">${app.first_name} ${app.last_name}</div><div class="ac-meta">📧 ${app.email} · 📱 ${app.phone||'—'} · Applied: ${appliedDate}</div></div>${statusBadge}</div>
         <div class="ac-details">
           <div><div class="adi-label">Region</div><div class="adi-value">📍 ${app.region||'—'}</div></div>
-          <div><div class="adi-label">Experience</div><div class="adi-value">💼 ${app.experience||'—'}</div></div>
-          <div><div class="adi-label">SA ID</div><div class="adi-value">${app.idNumber||'—'}</div></div>
-          <div><div class="adi-label">Ref</div><div class="adi-value"><code style="color:var(--oz-accent);font-size:.75rem">${app.id}</code></div></div>
+          <div><div class="adi-label">Experience</div><div class="adi-value">💼 ${app.experience_band||'—'}</div></div>
+          <div><div class="adi-label">SA ID</div><div class="adi-value">${app.id_number||'—'}</div></div>
+          <div><div class="adi-label">Ref</div><div class="adi-value"><code style="color:var(--oz-accent);font-size:.75rem">${app.ref_number}</code></div></div>
         </div>
         <div style="font-size:.66rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:5px">Motivation</div>
         <div class="ac-motivation">${app.motivation||'—'}</div>
+        ${app.status==='declined' && app.decline_reason ? `<div style="margin-top:.5rem;font-size:.78rem;color:var(--oz-red)">Decline reason: ${app.decline_reason}</div>` : ''}
         <div class="ac-actions">${actions}</div>
       </div>`;
     });
   }
-  document.getElementById('page-applications').innerHTML = html;
+  page.innerHTML = html;
 }
-function approveApp(id) { const a=window.APPLICATIONS.find(x=>x.id===id); if(!a)return; a.status='approved'; buildNav(); renderApplications(); OZ.toast('✅ '+a.firstName+' approved!'); }
-function openDecline(id) { currentDeclineId=id; OZ.openModal('modal-decline'); }
-function confirmDecline() { const a=window.APPLICATIONS.find(x=>x.id===currentDeclineId); if(a){a.status='declined';buildNav();renderApplications();OZ.toast('Application declined.');} OZ.closeModal('modal-decline'); currentDeclineId=null; }
-function revokeApp(id) { const a=window.APPLICATIONS.find(x=>x.id===id); if(!a)return; a.status='pending'; buildNav(); renderApplications(); OZ.toast('Approval revoked.'); }
-function reconsiderApp(id) { const a=window.APPLICATIONS.find(x=>x.id===id); if(!a)return; a.status='pending'; buildNav(); renderApplications(); OZ.toast('Moved back to pending.'); }
+
+async function approveApp(id, firstName, lastName) {
+  const db = window.supabaseClient;
+  const { error } = await db
+    .from('applications')
+    .update({ status: 'approved', reviewed_by: window.OZ_USER?.id || null, reviewed_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) { OZ.toast('❌ Error: ' + error.message); return; }
+  OZ.toast('✅ ' + firstName + ' ' + lastName + ' approved!');
+  renderApplications();
+}
+
+async function updateAppStatus(id, status, toastMsg) {
+  const db = window.supabaseClient;
+  const { error } = await db
+    .from('applications')
+    .update({ status, reviewed_by: window.OZ_USER?.id || null, reviewed_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) { OZ.toast('❌ Error: ' + error.message); return; }
+  OZ.toast(toastMsg);
+  renderApplications();
+}
+
+function openDecline(id) { currentDeclineId = id; OZ.openModal('modal-decline'); }
+
+async function confirmDecline() {
+  const reason = document.getElementById('decline-reason').value;
+  const notes  = document.getElementById('decline-notes').value.trim();
+  const db = window.supabaseClient;
+  const { error } = await db
+    .from('applications')
+    .update({
+      status:        'declined',
+      decline_reason: reason,
+      decline_notes:  notes || null,
+      reviewed_by:   window.OZ_USER?.id || null,
+      reviewed_at:   new Date().toISOString(),
+    })
+    .eq('id', currentDeclineId);
+  if (error) { OZ.toast('❌ Error: ' + error.message); return; }
+  OZ.closeModal('modal-decline');
+  currentDeclineId = null;
+  OZ.toast('Application declined.');
+  renderApplications();
+}
+
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 
 // ── PRODUCTS ──────────────────────────────────────────────────
@@ -1004,95 +1078,236 @@ function renderBI() {
   }, 80);
 }
 
-// ── SETTINGS ──────────────────────────────────────────────────
-function renderSettings() {
+// ── SETTINGS — Supabase wired ────────────────────────────────
+async function renderSettings() {
+  const page = document.getElementById('page-settings');
+  page.innerHTML = `<div class="page-header"><div class="page-header-left"><h1>Settings</h1><p>System-wide configuration</p></div></div><div class="card" style="text-align:center;padding:2rem;color:var(--oz-muted)">⏳ Loading settings…</div>`;
+
+  const db = window.supabaseClient;
+
+  // Load system_settings row
+  const { data: sysData, error: sysErr } = await db
+    .from('system_settings')
+    .select('*')
+    .eq('id', 1)
+    .single();
+
+  // Load stores
+  const { data: storesData, error: storesErr } = await db
+    .from('stores')
+    .select('id, name, retailer, branch, region, address')
+    .eq('status', 'active')
+    .order('name');
+
+  if (sysErr) {
+    page.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--oz-red)">❌ Failed to load settings: ${sysErr.message}</div>`;
+    return;
+  }
+
+  // Merge DB values into window.SETTINGS so rest of app stays in sync
+  if (sysData) {
+    window.SETTINGS.hourlyRate       = Number(sysData.hourly_rate_zar);
+    window.SETTINGS.shiftHours       = sysData.standard_shift_hrs;
+    window.SETTINGS.paymentTermsDays = sysData.payment_terms_days;
+    window.SETTINGS.minPhotosPerShift= sysData.min_photos_per_shift;
+  }
+
+  // Merge stores
+  if (storesData) {
+    window.SETTINGS.stores = storesData.map(s => ({
+      id:       s.id,
+      name:     s.name,
+      retailer: s.retailer,
+      branch:   s.branch,
+      address:  s.address || '',
+      town:     s.region,
+      province: s.region,
+      email:    '',
+      phone:    '',
+    }));
+  }
+
   const S = window.SETTINGS;
-  document.getElementById('page-settings').innerHTML = `
-  <div class="page-header"><div class="page-header-left"><h1>Settings</h1><p>System-wide configuration — changes apply immediately</p></div></div>
+  const sym = S.currencySymbol;
+
+  page.innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Settings</h1><p>System-wide configuration — saved changes apply immediately</p></div></div>
   <div class="settings-grid">
+
     <div class="settings-card">
       <div class="settings-card-title">💰 Pay &amp; Rates</div>
-      <div class="setting-row"><div><div class="sr-label">Hourly Rate (${S.currencySymbol})</div><div class="sr-sub">Base rate for all promoters</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.hourlyRate}" min="0" onchange="window.SETTINGS.hourlyRate=+this.value;OZ.toast('Rate updated to R'+this.value+'/hr')"></div></div>
-      <div class="setting-row"><div><div class="sr-label">Standard Shift Hours</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.shiftHours}" min="1" max="12" onchange="window.SETTINGS.shiftHours=+this.value"></div></div>
-      <div class="setting-row"><div><div class="sr-label">Payment Terms (Days)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.paymentTermsDays}" min="1" onchange="window.SETTINGS.paymentTermsDays=+this.value"></div></div>
-      <div class="setting-row"><div><div class="sr-label">Tax Rate (%)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.taxRate}" min="0" max="100" onchange="window.SETTINGS.taxRate=+this.value"></div></div>
-      <div style="margin-top:1rem;padding:10px 13px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.16);border-radius:var(--r);font-size:.82rem;color:var(--oz-muted)">
-        Shift pay: <strong style="color:var(--oz-green)">${S.currencySymbol}${S.hourlyRate*S.shiftHours}</strong> (${S.currencySymbol}${S.hourlyRate} × ${S.shiftHours}hrs)
+      <div class="setting-row"><div><div class="sr-label">Hourly Rate (${sym})</div><div class="sr-sub">Base rate for all promoters</div></div><div class="sr-control"><input class="settings-input-inline" id="st-hourly" type="number" value="${S.hourlyRate}" min="0"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Standard Shift Hours</div></div><div class="sr-control"><input class="settings-input-inline" id="st-shifthrs" type="number" value="${S.shiftHours}" min="1" max="12"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Payment Terms (Days)</div></div><div class="sr-control"><input class="settings-input-inline" id="st-paydays" type="number" value="${S.paymentTermsDays}" min="1"></div></div>
+      <div style="margin-top:1rem;padding:10px 13px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.16);border-radius:var(--r);font-size:.82rem;color:var(--oz-muted)" id="shift-pay-preview">
+        Shift pay: <strong style="color:var(--oz-green)">${sym}${S.hourlyRate*S.shiftHours}</strong> (${sym}${S.hourlyRate} × ${S.shiftHours}hrs)
       </div>
+      <button class="btn btn-accent" style="margin-top:1rem;width:100%" onclick="savePaySettings()">💾 Save Pay Settings</button>
     </div>
+
     <div class="settings-card">
       <div class="settings-card-title">⚡ Shift Rules</div>
-      <div class="setting-row"><div><div class="sr-label">Min Photos Per Shift</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.minPhotosPerShift}" min="1" onchange="window.SETTINGS.minPhotosPerShift=+this.value"></div></div>
-      <div class="setting-row"><div><div class="sr-label">Late Check-in Threshold (min)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.lateCheckinThresholdMins}" min="1" onchange="window.SETTINGS.lateCheckinThresholdMins=+this.value"></div></div>
-      <div class="setting-row"><div><div class="sr-label">Check-in GPS Radius (m)</div></div><div class="sr-control"><input class="settings-input-inline" type="number" value="${S.checkinRadiusMeters}" min="50" onchange="window.SETTINGS.checkinRadiusMeters=+this.value"></div></div>
-      <div class="setting-row"><div><div class="sr-label">Feedback Before Checkout</div><div class="sr-sub">Report must be submitted first</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S.requireFeedbackBeforeCheckout?'checked':''} onchange="window.SETTINGS.requireFeedbackBeforeCheckout=this.checked"><span class="toggle-slider"></span></label></div></div>
-      <div class="setting-row"><div><div class="sr-label">Show Earnings to Promoter</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S.showEarningsToPromoter?'checked':''} onchange="window.SETTINGS.showEarningsToPromoter=this.checked"><span class="toggle-slider"></span></label></div></div>
-      <div class="setting-row"><div><div class="sr-label">GPS Verification</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S.enableGPSVerification?'checked':''} onchange="window.SETTINGS.enableGPSVerification=this.checked"><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Min Photos Per Shift</div></div><div class="sr-control"><input class="settings-input-inline" id="st-minphotos" type="number" value="${S.minPhotosPerShift}" min="1"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Late Check-in Threshold (min)</div></div><div class="sr-control"><input class="settings-input-inline" id="st-latein" type="number" value="${S.lateCheckinThresholdMins}" min="1"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Check-in GPS Radius (m)</div></div><div class="sr-control"><input class="settings-input-inline" id="st-gpsrad" type="number" value="${S.checkinRadiusMeters}" min="50"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Feedback Before Checkout</div><div class="sr-sub">Report must be submitted first</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" id="st-feedback" ${S.requireFeedbackBeforeCheckout?'checked':''}><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">Show Earnings to Promoter</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" id="st-earnings" ${S.showEarningsToPromoter?'checked':''}><span class="toggle-slider"></span></label></div></div>
+      <div class="setting-row"><div><div class="sr-label">GPS Verification</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" id="st-gps" ${S.enableGPSVerification?'checked':''}><span class="toggle-slider"></span></label></div></div>
+      <button class="btn btn-accent" style="margin-top:1rem;width:100%" onclick="saveShiftSettings()">💾 Save Shift Rules</button>
     </div>
+
     <div class="settings-card" style="grid-column:1/-1">
       <div class="settings-card-title" style="display:flex;align-items:center;justify-content:space-between">
         🏪 Store Management
         <button class="btn btn-accent btn-sm" onclick="OZ.openModal('modal-add-store')">+ Add Store</button>
       </div>
-      <div style="font-size:.78rem;color:var(--oz-muted);margin-bottom:1rem">These stores appear in the invoice dropdown and booking forms. Add full contact details for accurate invoicing.</div>
+      <div style="font-size:.78rem;color:var(--oz-muted);margin-bottom:1rem">These stores appear in booking forms and invoices. Changes are saved to the database immediately.</div>
       <div id="store-cards-wrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
-        ${S.stores.map((s,i)=>`
+        ${(storesData||[]).map(s => `
         <div class="card" style="padding:1rem;margin:0">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.5rem">
             <div>
               <div style="font-weight:700;font-size:.9rem">${s.name}</div>
               <div style="font-size:.75rem;color:var(--oz-accent);margin-top:2px">${s.retailer} · ${s.branch}</div>
             </div>
-            <button onclick="removeStore(${i})" style="background:none;border:none;color:var(--oz-dim);cursor:pointer;font-size:1rem;padding:0 0 0 8px" title="Remove store">✕</button>
+            <button onclick="removeStore('${s.id}','${s.name.replace(/'/g,"\'")}')" style="background:none;border:none;color:var(--oz-dim);cursor:pointer;font-size:1rem;padding:0 0 0 8px" title="Remove store">✕</button>
           </div>
           <div style="font-size:.78rem;color:var(--oz-muted);line-height:1.7">
-            <div>📍 ${s.address}, ${s.town}</div>
-            <div>🗺 ${s.province}</div>
-            <div>📧 ${s.email||'—'}</div>
-            <div>📞 ${s.phone||'—'}</div>
+            <div>📍 ${s.address||'—'}</div>
+            <div>🗺 ${s.region}</div>
           </div>
         </div>`).join('')}
       </div>
     </div>
+
     <div class="settings-card">
       <div class="settings-card-title">🔔 Notifications</div>
-      ${[['New Application','notifyNewApplication'],['Booking Response','notifyBookingResponse'],['Low Stock Alert','notifyLowStock'],['Invoice Overdue','notifyInvoiceOverdue'],['Daily Report','notifyDailyReport']].map(([label,key])=>`
+      ${[['New Application','notifyNewApplication'],['Booking Response','notifyBookingResponse'],['Invoice Overdue','notifyInvoiceOverdue'],['Daily Report','notifyDailyReport']].map(([label,key])=>`
       <div class="setting-row"><div><div class="sr-label">${label}</div></div><div class="sr-control"><label class="toggle-wrap"><input type="checkbox" ${S[key]?'checked':''} onchange="window.SETTINGS.${key}=this.checked"><span class="toggle-slider"></span></label></div></div>`).join('')}
-      <div class="setting-row"><div><div class="sr-label">Low Stock Threshold (%)</div></div><div class="sr-control"><div class="range-control"><input type="range" min="5" max="50" value="${S.lowStockThresholdPct}" step="5" oninput="window.SETTINGS.lowStockThresholdPct=+this.value;this.nextElementSibling.textContent=this.value+'%'"><span class="range-val">${S.lowStockThresholdPct}%</span></div></div></div>
     </div>
+
     <div class="settings-card">
       <div class="settings-card-title">🎨 Appearance</div>
-      <div class="setting-row"><div><div class="sr-label">Accent Color</div></div><div class="sr-control"><input type="color" value="${S.accentColor}" onchange="window.SETTINGS.accentColor=this.value;document.documentElement.style.setProperty('--oz-accent',this.value)" style="width:44px;height:28px;border-radius:6px;border:1px solid var(--oz-border2);background:none;cursor:pointer"></div></div>
+      <div class="setting-row"><div><div class="sr-label">Accent Color</div></div><div class="sr-control"><input type="color" value="${S.accentColor}" onchange="applyAccent(this.value)" style="width:44px;height:28px;border-radius:6px;border:1px solid var(--oz-border2);background:none;cursor:pointer"></div></div>
       <div class="color-swatch-row">
-        ${['#00d4ff','#10b981','#f59e0b','#ec4899','#7c3aed','#ef4444','#f97316'].map(c=>`<div class="color-swatch" style="background:${c}" onclick="applyAccent('${c}')"></div>`).join('')}
+        ${['#00d4ff','#10b981','#f59e0b','#ec4899','#7c3aed','#ef4444','#f97316'].map(col=>`<div class="color-swatch" style="background:${col}" onclick="applyAccent('${col}')"></div>`).join('')}
       </div>
     </div>
+
   </div>`;
 }
-function saveNewStore() {
+
+async function savePaySettings() {
+  const hourlyRate  = Number(document.getElementById('st-hourly')?.value || 0);
+  const shiftHours  = Number(document.getElementById('st-shifthrs')?.value || 8);
+  const payDays     = Number(document.getElementById('st-paydays')?.value || 5);
+  if (!hourlyRate) { OZ.toast('Hourly rate must be > 0'); return; }
+
+  const db = window.supabaseClient;
+  const { error } = await db
+    .from('system_settings')
+    .update({
+      hourly_rate_zar:    hourlyRate,
+      standard_shift_hrs: shiftHours,
+      payment_terms_days: payDays,
+      updated_by:         window.OZ_USER?.id || null,
+    })
+    .eq('id', 1);
+
+  if (error) { OZ.toast('❌ Save failed: ' + error.message); return; }
+
+  window.SETTINGS.hourlyRate       = hourlyRate;
+  window.SETTINGS.shiftHours       = shiftHours;
+  window.SETTINGS.paymentTermsDays = payDays;
+
+  // Update preview
+  const prev = document.getElementById('shift-pay-preview');
+  if (prev) prev.innerHTML = `Shift pay: <strong style="color:var(--oz-green)">R${hourlyRate*shiftHours}</strong> (R${hourlyRate} × ${shiftHours}hrs)`;
+
+  // Update booking modal display
+  const rateEl = document.getElementById('booking-rate-display');
+  const totEl  = document.getElementById('booking-total-display');
+  if (rateEl) rateEl.textContent = hourlyRate;
+  if (totEl)  totEl.textContent  = hourlyRate * shiftHours;
+
+  OZ.toast('✅ Pay settings saved!');
+}
+
+async function saveShiftSettings() {
+  const minPhotos = Number(document.getElementById('st-minphotos')?.value || 10);
+  const db = window.supabaseClient;
+  const { error } = await db
+    .from('system_settings')
+    .update({
+      min_photos_per_shift: minPhotos,
+      updated_by:           window.OZ_USER?.id || null,
+    })
+    .eq('id', 1);
+
+  if (error) { OZ.toast('❌ Save failed: ' + error.message); return; }
+
+  window.SETTINGS.minPhotosPerShift           = minPhotos;
+  window.SETTINGS.lateCheckinThresholdMins    = Number(document.getElementById('st-latein')?.value  || 30);
+  window.SETTINGS.checkinRadiusMeters         = Number(document.getElementById('st-gpsrad')?.value  || 200);
+  window.SETTINGS.requireFeedbackBeforeCheckout = document.getElementById('st-feedback')?.checked ?? true;
+  window.SETTINGS.showEarningsToPromoter      = document.getElementById('st-earnings')?.checked ?? true;
+  window.SETTINGS.enableGPSVerification       = document.getElementById('st-gps')?.checked ?? true;
+
+  OZ.toast('✅ Shift rules saved!');
+}
+
+async function saveNewStore() {
   const name     = document.getElementById('ns-name').value.trim();
   const retailer = document.getElementById('ns-retailer').value.trim();
   const branch   = document.getElementById('ns-branch').value.trim();
-  const email    = document.getElementById('ns-email').value.trim();
-  const phone    = document.getElementById('ns-phone').value.trim();
-  const town     = document.getElementById('ns-town').value.trim();
   const address  = document.getElementById('ns-address').value.trim();
   const province = document.getElementById('ns-province').value;
-  if (!name || !retailer || !town) { OZ.toast('Store name, retailer and town are required'); return; }
-  const id = 'STR-' + String(window.SETTINGS.stores.length + 1).padStart(3, '0');
-  window.SETTINGS.stores.push({ id, name, retailer, branch, address, town, province, email, phone });
-  ['ns-name','ns-retailer','ns-branch','ns-email','ns-phone','ns-town','ns-address'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  if (!name || !retailer || !province) { OZ.toast('Store name, retailer and province are required'); return; }
+
+  const db = window.supabaseClient;
+  const { error } = await db
+    .from('stores')
+    .insert({
+      name,
+      retailer,
+      branch:   branch || retailer,
+      region:   province,
+      address:  address || null,
+      status:   'active',
+    });
+
+  if (error) { OZ.toast('❌ Save failed: ' + error.message); return; }
+
+  ['ns-name','ns-retailer','ns-branch','ns-email','ns-phone','ns-town','ns-address'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   OZ.closeModal('modal-add-store');
   OZ.toast('✅ Store added: ' + name);
   renderSettings();
 }
-function removeStore(i) {
-  const name = window.SETTINGS.stores[i]?.name || 'store';
-  window.SETTINGS.stores.splice(i, 1);
+
+async function removeStore(id, name) {
+  if (!confirm('Remove ' + name + '? This cannot be undone.')) return;
+  const db = window.supabaseClient;
+  const { error } = await db.from('stores').update({ status: 'inactive' }).eq('id', id);
+  if (error) { OZ.toast('❌ Error: ' + error.message); return; }
   OZ.toast('Store removed: ' + name);
+  // Also remove from local SETTINGS.stores so invoice dropdown updates
+  window.SETTINGS.stores = window.SETTINGS.stores.filter(s => s.id !== id);
   renderSettings();
 }
-function applyAccent(c){window.SETTINGS.accentColor=c;document.documentElement.style.setProperty('--oz-accent',c);OZ.toast('Accent updated');}
+
+async function applyAccent(c) {
+  window.SETTINGS.accentColor = c;
+  document.documentElement.style.setProperty('--oz-accent', c);
+  OZ.toast('Accent updated');
+  // Save to DB
+  const { error } = await window.supabaseClient
+    .from('system_settings')
+    .update({ accent_color: c })
+    .eq('id', 1);
+  if (error) OZ.toast('❌ Could not save accent: ' + error.message);
+}
 
 // ── CHATBOT ────────────────────────────────────────────────────
 let chatOpen = false;
@@ -1139,8 +1354,15 @@ function sendMsg(text){
 // ── BOOT ──────────────────────────────────────────────────────
 buildNav();
 showPage('dashboard');
+// Booking modal defaults — will be refreshed when settings page is opened
 document.getElementById('booking-rate-display').textContent = window.SETTINGS.hourlyRate;
 document.getElementById('booking-total-display').textContent = window.SETTINGS.hourlyRate * window.SETTINGS.shiftHours;
+// Pre-load pending application count for nav badge
+(async () => {
+  const db = window.supabaseClient;
+  const { data } = await db.from('applications').select('id, status').eq('status','pending');
+  if (data) { _appData = data; buildNav(); }
+})();
 </script>
 </body>
 </html>

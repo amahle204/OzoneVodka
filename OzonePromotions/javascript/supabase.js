@@ -5,3 +5,16 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
+// Load accent color from DB and apply site-wide
+(async () => {
+  try {
+    const { data } = await window.supabaseClient
+      .from('system_settings')
+      .select('accent_color')
+      .eq('id', 1)
+      .single();
+    if (data?.accent_color) {
+      document.documentElement.style.setProperty('--oz-accent', data.accent_color);
+    }
+  } catch (e) {}
+})();
