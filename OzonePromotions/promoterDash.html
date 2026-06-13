@@ -30,19 +30,59 @@
 </main>
 
 <!-- SHIFT REPORT MODAL -->
-<div class="modal-overlay" id="modal-feedback">
-  <div class="modal">
-    <h2>📝 Submit Shift Report</h2>
-    <div class="form-group"><label>Customer Responses</label><textarea placeholder="How did customers respond to the product?"></textarea></div>
-    <div class="form-group"><label>Sales Observations</label><textarea placeholder="Estimated units sold or sampled…"></textarea></div>
-    <div class="form-group"><label>Stock Issues</label><textarea placeholder="Was stock sufficient? Anything running low?"></textarea></div>
-    <div class="form-group"><label>Challenges Experienced</label><textarea placeholder="Any issues during the activation?"></textarea></div>
-    <div class="form-group"><label>Overall Rating</label>
-      <select><option>⭐⭐⭐⭐⭐ Excellent</option><option>⭐⭐⭐⭐ Good</option><option>⭐⭐⭐ Average</option><option>⭐⭐ Below Average</option></select>
+<div class="modal-overlay" id="modal-feedback"
+     data-booking="" data-store="" data-promoter="">
+  <div class="modal" style="max-width:520px">
+    <h2>📝 Shift Feedback Report</h2>
+
+    <!-- Shift context pill — filled dynamically -->
+    <div id="feedback-shift-label"
+         style="background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.15);
+                border-radius:var(--r);padding:9px 13px;margin-bottom:1rem;
+                font-size:.8rem;color:var(--oz-muted);line-height:1.7">
     </div>
+
+    <div class="form-group">
+      <label>Overall Shift Rating <span style="color:var(--oz-red)">*</span></label>
+      <div style="display:flex;gap:.5rem;margin-top:.35rem" id="rating-stars">
+          <button type="button" onclick="setRating(1)" data-star="1" style="background:none;border:none;font-size:1.6rem;cursor:pointer;transition:transform .15s;padding:0 2px" title="1 star">☆</button>
+          <button type="button" onclick="setRating(2)" data-star="2" style="background:none;border:none;font-size:1.6rem;cursor:pointer;transition:transform .15s;padding:0 2px" title="2 stars">☆</button>
+          <button type="button" onclick="setRating(3)" data-star="3" style="background:none;border:none;font-size:1.6rem;cursor:pointer;transition:transform .15s;padding:0 2px" title="3 stars">☆</button>
+          <button type="button" onclick="setRating(4)" data-star="4" style="background:none;border:none;font-size:1.6rem;cursor:pointer;transition:transform .15s;padding:0 2px" title="4 stars">☆</button>
+          <button type="button" onclick="setRating(5)" data-star="5" style="background:none;border:none;font-size:1.6rem;cursor:pointer;transition:transform .15s;padding:0 2px" title="5 stars">☆</button>
+      </div>
+      <input type="hidden" id="fb-rating" value="">
+    </div>
+
+    <div class="form-group">
+      <label>Customer Responses <span style="color:var(--oz-red)">*</span></label>
+      <textarea id="fb-customers" rows="3"
+        placeholder="How did customers react? Any notable interactions?"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Sales Observations</label>
+      <textarea id="fb-sales" rows="2"
+        placeholder="Estimated samples handed out, purchases observed…"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Stock Issues</label>
+      <textarea id="fb-stock" rows="2"
+        placeholder="Low stock, missing POS material, display issues…"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Challenges / Other Notes</label>
+      <textarea id="fb-challenges" rows="2"
+        placeholder="Anything that made the shift difficult or unusual…"></textarea>
+    </div>
+
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="OZ.closeModal('modal-feedback')">Cancel</button>
-      <button class="btn btn-accent" onclick="submitFeedback()">Submit Report →</button>
+      <button class="btn btn-ghost"
+        onclick="OZ.closeModal('modal-feedback')">Cancel</button>
+      <button class="btn btn-accent"
+        onclick="submitFeedback()">Submit Report →</button>
     </div>
   </div>
 </div>
@@ -70,6 +110,7 @@
 <script src="javascript/supabase.js"></script>
 <script src="javascript/auth-session.js"></script>
 <script src="javascript/index.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 // @ts-nocheck
 // ── SESSION — uses auth-session.js window.OZ_USER ─────────────
@@ -498,108 +539,944 @@ async function respondToOffer(bookingId, newStatus, shiftDate) {
 }
 
 // ── MY SHIFT ──────────────────────────────────────────────────
-let shiftState = { checkedIn:false, photos:0, feedbackSubmitted:false };
+// shiftContext holds the current booking + DB state for the session.
+// All steps read from this — no mock state.
+let shiftContext = {
+  booking:       null,   // today's confirmed booking row
+  attendance:    null,   // attendance_logs row (null = not checked in)
+  photoCount:    0,      // count of uploaded shift_photos rows
+  reportDone:    false,  // shift_reports row exists for this booking
+};
 
 async function renderMyShift() {
-  const el  = document.getElementById('page-myshift');
-  const S   = window.SETTINGS || {};
-  const sym = S.currencySymbol || 'R';
+  const el    = document.getElementById('page-myshift');
+  const db    = window.supabaseClient;
+  const S     = window.SETTINGS || {};
+  const sym   = S.currencySymbol || 'R';
   const today = new Date().toISOString().split('T')[0];
 
-  // Find today's confirmed booking
-  const { data: shifts } = await window.supabaseClient
+  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)">
+    <div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading shift…</div>`;
+
+  // ── 1. Today's confirmed booking ────────────────────────────
+  const { data: shifts } = await db
     .from('bookings')
-    .select(`id, shift_date, shift_slot, shift_hours, hourly_rate_zar, total_pay_zar,
-      store:store_id(name, retailer, branch, qr_store_code),
-      product:product_id(name, brand)`)
+    .select(`
+      id, shift_date, shift_slot, shift_hours, hourly_rate_zar, total_pay_zar,
+      store:store_id(id, name, retailer, branch),
+      product:product_id(id, name, brand)
+    `)
     .eq('promoter_id', OZ_ME.id)
     .eq('status', 'confirmed')
     .eq('shift_date', today)
     .limit(1);
 
-  const shift = shifts?.[0];
-  const c = shiftState.checkedIn, p = shiftState.photos, f = shiftState.feedbackSubmitted;
-  const minPhotos = S.minPhotosPerShift || 10;
-  const canCheckout = c && p >= minPhotos && (!S.requireFeedbackBeforeCheckout || f);
+  const booking = shifts?.[0] || null;
+  shiftContext.booking = booking;
 
-  if (!shift) {
+  // ── No shift today ───────────────────────────────────────────
+  if (!booking) {
     el.innerHTML = `
-    <div class="page-header"><div class="page-header-left"><h1>Active Shift</h1><p>Today's activation</p></div></div>
-    <div class="card" style="text-align:center;padding:3rem">
-      <div style="font-size:2.5rem;margin-bottom:.75rem">😴</div>
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.4rem">No shift today</div>
-      <div style="font-size:.84rem;color:var(--oz-muted);margin-bottom:1.2rem">You don't have a confirmed shift scheduled for today.</div>
+    <div class="page-header">
+      <div class="page-header-left"><h1>Active Shift</h1><p>Today's activation</p></div>
+    </div>
+    <div class="card" style="text-align:center;padding:3.5rem 2rem">
+      <div style="font-size:3rem;margin-bottom:.75rem">😴</div>
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:.45rem">No active shift today</div>
+      <div style="font-size:.84rem;color:var(--oz-muted);margin-bottom:1.5rem;max-width:320px;margin-left:auto;margin-right:auto">
+        You don't have a confirmed activation scheduled for today.
+        Check your upcoming bookings below.
+      </div>
       <button class="btn btn-accent" onclick="showPage('mybookings')">📅 View My Bookings</button>
     </div>`;
     return;
   }
 
-  const fmtStore = shift.store ? (shift.store.retailer ? `${shift.store.retailer} — ${shift.store.branch}` : shift.store.name) : '—';
-  const pay = shift.total_pay_zar || ((shift.hourly_rate_zar||S.hourlyRate||45) * (shift.shift_hours||S.shiftHours||8));
+  // ── 2. Read real DB state for this booking ───────────────────
+  const [attRes, photoRes, reportRes] = await Promise.all([
+    db.from('attendance_logs')
+      .select('id, checked_in_at, checked_out_at, status')
+      .eq('booking_id', booking.id)
+      .maybeSingle(),
+    db.from('shift_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('booking_id', booking.id),
+    db.from('shift_reports')
+      .select('id')
+      .eq('booking_id', booking.id)
+      .maybeSingle(),
+  ]);
 
+  shiftContext.attendance = attRes.data  || null;
+  shiftContext.photoCount = photoRes.count || 0;
+  shiftContext.reportDone = !!reportRes.data;
+
+  const att        = shiftContext.attendance;
+  const checkedIn  = !!att?.checked_in_at;
+  const checkedOut = !!att?.checked_out_at;
+  const photoCount = shiftContext.photoCount;
+  const minPhotos  = S.minPhotosPerShift || 10;
+  const reportDone = shiftContext.reportDone;
+  const canCheckout = checkedIn && photoCount >= minPhotos &&
+    (!S.requireFeedbackBeforeCheckout || reportDone) && !checkedOut;
+
+  const fmtStore = booking.store
+    ? (booking.store.retailer
+        ? `${booking.store.retailer} — ${booking.store.branch}`
+        : booking.store.name)
+    : '—';
+  const pay = booking.total_pay_zar ||
+    ((booking.hourly_rate_zar || S.hourlyRate || 45) *
+     (booking.shift_hours || S.shiftHours || 8));
+  const campaignLabel = booking.product
+    ? (booking.product.brand
+        ? `${booking.product.brand} — ${booking.product.name}`
+        : booking.product.name)
+    : 'Activation';
+
+  // ── 3. Render layout ─────────────────────────────────────────
   el.innerHTML = `
-  <div class="page-header"><div class="page-header-left"><h1>Active Shift</h1><p>Check in, upload photos, submit your report</p></div></div>
-  <div class="card">
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:1rem">
-      <div>
-        <div style="font-family:var(--font-h);font-size:1rem;font-weight:700">${shift.product?.brand ? shift.product.brand+' — ' : ''}${shift.product?.name||'Activation'}</div>
-        <div style="color:var(--oz-muted);font-size:.82rem">🏪 ${fmtStore} · ${shift.shift_slot}</div>
-        <div style="margin-top:5px"><span class="pay-badge">💰 ${sym}${Number(pay).toLocaleString()} for this shift</span></div>
+  <div class="page-header">
+    <div class="page-header-left"><h1>Active Shift</h1><p>Today's activation</p></div>
+  </div>
+
+  <!-- Shift summary card -->
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:1rem">${campaignLabel}</div>
+        <div style="color:var(--oz-muted);font-size:.82rem;margin-top:3px">
+          🏪 ${fmtStore} &nbsp;·&nbsp; 🕐 ${booking.shift_slot || '—'}
+        </div>
+        <div style="margin-top:8px">
+          <span class="pay-badge">💰 ${sym}${Number(pay).toLocaleString()} for this shift</span>
+        </div>
       </div>
-      <span class="badge badge-cyan" style="margin-left:auto">Today</span>
+      <span class="badge ${checkedOut ? 'badge-gray' : 'badge-cyan'}">
+        ${checkedOut ? 'Completed' : 'Today'}
+      </span>
+    </div>
+  </div>
+
+  ${checkedOut ? `
+  <div class="card" style="text-align:center;padding:2.5rem;border:2px solid var(--oz-green)">
+    <div style="font-size:2.5rem;margin-bottom:.6rem">✅</div>
+    <div style="font-weight:700;font-size:1rem;color:var(--oz-green);margin-bottom:.4rem">Shift Complete!</div>
+    <div style="font-size:.84rem;color:var(--oz-muted)">
+      Payment of <strong style="color:var(--oz-green)">${sym}${Number(pay).toLocaleString()}</strong>
+      will be processed within ${S.paymentTermsDays || 5} business days.
+    </div>
+  </div>` : `
+
+  <!-- 4-step flow -->
+  <div style="display:flex;flex-direction:column;gap:.85rem">
+
+    <!-- STEP 1: Check In -->
+    <div class="card" style="border-left:4px solid ${checkedIn ? 'var(--oz-green)' : 'var(--oz-accent)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700">Step 1 — Check In</div>
+          <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">
+            ${checkedIn
+              ? `Checked in at ${new Date(att.checked_in_at).toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}`
+              : 'Scan the QR code posted at the store to activate your shift'}
+          </div>
+        </div>
+        ${checkedIn
+          ? '<span class="badge badge-green">✓ Checked In</span>'
+          : `<button class="btn btn-success" onclick="openQRScanner('${booking.id}')">📲 Scan QR</button>`}
+      </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:.9rem">
-      <div class="card" style="border:1px solid ${c?'var(--oz-green)':'var(--oz-border)'}">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-weight:600">Step 1 — Check In</div>
-            <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">Scan the store QR code to verify your location</div>
-          </div>
-          ${c ? '<span class="badge badge-green">✓ Checked in</span>' : '<button class="btn btn-success" onclick="doCheckin()">📲 Scan QR</button>'}
-        </div>
+    <!-- STEP 2: Photos -->
+    <div class="card" style="border-left:4px solid ${photoCount >= minPhotos ? 'var(--oz-green)' : 'var(--oz-border2)'};
+         ${!checkedIn ? 'opacity:.45;pointer-events:none' : ''}">
+      <div style="font-weight:700;margin-bottom:.5rem">
+        Step 2 — Upload Photos
+        <span style="font-size:.74rem;font-weight:400;color:var(--oz-muted)">(min ${minPhotos})</span>
       </div>
-
-      <div class="card" style="border:1px solid ${p>=minPhotos?'var(--oz-green)':'var(--oz-border)'};opacity:${c?1:0.4}">
-        <div style="font-weight:600;margin-bottom:.4rem">Step 2 — Upload Photos <span style="font-size:.74rem;font-weight:400;color:var(--oz-muted)">(min ${minPhotos})</span></div>
-        <div class="photo-grid" style="margin-bottom:.65rem">
-          ${Array.from({length:minPhotos},(_,i)=>`<div class="photo-thumb ${i<p?'filled':''}" onclick="${c?'addPhoto()':''}">${i>=p?'<span style="font-size:.9rem">📷</span>':''}</div>`).join('')}
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:.79rem;color:${p>=minPhotos?'var(--oz-green)':'var(--oz-muted)'}">${p}/${minPhotos} photos</span>
-          ${c && p < minPhotos ? '<button class="btn btn-sm btn-outline" onclick="addPhoto()">+ Upload Photo</button>' : ''}
-        </div>
-      </div>
-
-      <div class="card" style="border:1px solid ${f?'var(--oz-green)':'var(--oz-border)'};opacity:${c?1:0.4}">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-weight:600">Step 3 — Feedback Report</div>
-            <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">${S.requireFeedbackBeforeCheckout?'Required before check-out':'Optional but recommended'}</div>
-          </div>
-          ${f ? '<span class="badge badge-green">✓ Submitted</span>' : `<button class="btn btn-outline" onclick="${c?"OZ.openModal('modal-feedback')":"OZ.toast('Check in first')"}"${!c?' disabled':''}>Submit Report</button>`}
-        </div>
-      </div>
-
-      <div class="card" style="opacity:${canCheckout?1:0.35}">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-weight:600">Step 4 — Check Out</div>
-            <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">Complete all steps above to unlock</div>
-          </div>
-          <button class="btn btn-danger" onclick="doCheckout()"${!canCheckout?' disabled':''}>Sign Off Shift</button>
-        </div>
-        ${canCheckout ? `<div style="margin-top:.6rem;font-size:.75rem;color:var(--oz-muted)">Payment of <strong style="color:var(--oz-green)">${sym}${Number(pay).toLocaleString()}</strong> processed within ${S.paymentTermsDays||5} business days.</div>` : ''}
+      <div id="photo-album-grid" style="margin-bottom:.75rem"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:.79rem;color:${photoCount >= minPhotos ? 'var(--oz-green)' : 'var(--oz-muted)'}">
+          ${photoCount >= minPhotos ? '✓' : ''} ${photoCount} / ${minPhotos} photos uploaded
+        </span>
+        ${checkedIn && photoCount < 30
+          ? `<label class="btn btn-sm btn-outline" style="cursor:pointer">
+               + Add Photo
+               <input type="file" accept="image/*" capture="environment"
+                 style="display:none" onchange="uploadShiftPhoto(this,'${booking.id}')">
+             </label>`
+          : ''}
       </div>
     </div>
-  </div>`;
+
+    <!-- STEP 3: Feedback -->
+    <div class="card" style="border-left:4px solid ${reportDone ? 'var(--oz-green)' : 'var(--oz-border2)'};
+         ${!checkedIn ? 'opacity:.45;pointer-events:none' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700">Step 3 — Feedback Report</div>
+          <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">
+            ${S.requireFeedbackBeforeCheckout ? 'Required before check-out' : 'Optional but recommended'}
+          </div>
+        </div>
+        ${reportDone
+          ? '<span class="badge badge-green">✓ Submitted</span>'
+          : `<button class="btn btn-outline"
+               onclick="openFeedbackModal('${booking.id}','${booking.store?.id||''}','${OZ_ME.id}')"
+               ${!checkedIn ? 'disabled' : ''}>
+               Submit Report
+             </button>`}
+      </div>
+    </div>
+
+    <!-- STEP 4: Check Out -->
+    <div class="card" style="border-left:4px solid ${canCheckout ? 'var(--oz-accent)' : 'var(--oz-border2)'};
+         ${!canCheckout ? 'opacity:.45;pointer-events:none' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700">Step 4 — Check Out</div>
+          <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">
+            ${!checkedIn        ? 'Complete all steps above to unlock'
+            : photoCount < minPhotos ? `Upload ${minPhotos - photoCount} more photo${minPhotos - photoCount !== 1 ? 's' : ''} to unlock`
+            : !reportDone && S.requireFeedbackBeforeCheckout ? 'Submit feedback report to unlock'
+            : canCheckout        ? 'All steps complete — ready to sign off'
+            : 'Complete all steps above to unlock'}
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="doCheckout('${booking.id}','${att?.id||''}')"
+          ${!canCheckout ? 'disabled' : ''}>
+          Sign Off Shift
+        </button>
+      </div>
+      ${canCheckout ? `
+      <div style="margin-top:.65rem;font-size:.75rem;color:var(--oz-muted)">
+        Payment of <strong style="color:var(--oz-green)">${sym}${Number(pay).toLocaleString()}</strong>
+        processed within ${S.paymentTermsDays || 5} business days.
+      </div>` : ''}
+    </div>
+
+  </div>`}
+
+  <!-- QR Scanner overlay (hidden until Step 1 clicked) -->
+  <div id="qr-scanner-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+       z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:2rem">
+    <div style="color:#fff;font-weight:700;font-size:1.1rem;margin-bottom:1rem">
+      📲 Scan the store QR code
+    </div>
+    <div id="qr-reader" style="width:280px;border-radius:12px;overflow:hidden"></div>
+    <div id="qr-scan-status" style="margin-top:1rem;font-size:.84rem;color:var(--oz-muted);
+         text-align:center;min-height:2rem"></div>
+    <button class="btn btn-ghost" style="margin-top:1.25rem;color:#fff"
+      onclick="closeQRScanner()">✕ Cancel</button>
+  </div>
+  `;
+
+  // Render photo album after HTML is in DOM
+  await renderPhotoAlbum(booking.id, campaignLabel, today);
 }
 
-function doCheckin()  { shiftState.checkedIn=true; OZ.toast('📍 Check-in verified — GPS captured'); renderMyShift(); }
-function addPhoto()   { if(!shiftState.checkedIn)return; shiftState.photos++; renderMyShift(); OZ.toast('📸 Photo '+shiftState.photos+' uploaded'); }
-function doCheckout() { const S=window.SETTINGS||{},sym=S.currencySymbol||'R'; OZ.toast('✅ Shift complete! Payment will be processed within '+(S.paymentTermsDays||5)+' days.'); shiftState={checkedIn:false,photos:0,feedbackSubmitted:false}; setTimeout(renderMyShift,1500); }
-function submitFeedback(){ OZ.closeModal('modal-feedback'); shiftState.feedbackSubmitted=true; OZ.toast('📝 Report submitted!'); renderMyShift(); }
-document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+// ── STEP 1: QR SCANNER ────────────────────────────────────────
+let _qrScanner = null;
+
+async function openQRScanner(bookingId) {
+  const overlay = document.getElementById('qr-scanner-overlay');
+  const status  = document.getElementById('qr-scan-status');
+  overlay.style.display = 'flex';
+  status.textContent    = 'Point your camera at the QR code…';
+
+  // Clean up any previous scanner instance
+  if (_qrScanner) {
+    try { await _qrScanner.stop(); } catch(e) {}
+    _qrScanner = null;
+  }
+
+  // Clear the reader div so html5-qrcode can remount cleanly
+  document.getElementById('qr-reader').innerHTML = '';
+
+  _qrScanner = new Html5Qrcode('qr-reader');
+
+  try {
+    await _qrScanner.start(
+      { facingMode: 'environment' }, // rear camera
+      { fps: 10, qrbox: { width: 220, height: 220 } },
+      (decodedText) => handleQRScan(decodedText, bookingId),
+      () => {} // ignore per-frame errors
+    );
+  } catch (err) {
+    status.innerHTML = `
+      <span style="color:var(--oz-red)">
+        ❌ Camera access denied.<br>
+        <span style="font-size:.76rem">Allow camera permissions and try again.</span>
+      </span>`;
+  }
+}
+
+async function handleQRScan(scannedToken, bookingId) {
+  // Stop scanner immediately — prevent double-fire
+  if (_qrScanner) {
+    try { await _qrScanner.stop(); } catch(e) {}
+    _qrScanner = null;
+  }
+
+  const db     = window.supabaseClient;
+  const status = document.getElementById('qr-scan-status');
+
+  status.innerHTML = `<span style="color:var(--oz-muted)">⏳ Verifying…</span>`;
+
+  // ── 1. Look up the token for this specific booking ───────────
+  const { data: tokenRec } = await db
+    .from('booking_qr_tokens')
+    .select('token, expires_at')
+    .eq('booking_id', bookingId)
+    .maybeSingle();
+
+  // ── 2. No QR generated yet for this booking ──────────────────
+  if (!tokenRec) {
+    status.innerHTML = `
+      <span style="color:var(--oz-red)">
+        ❌ No QR code has been generated for this shift yet.<br>
+        <span style="font-size:.76rem">Contact your manager.</span>
+      </span>`;
+    setTimeout(closeQRScanner, 3500);
+    return;
+  }
+
+  // ── 3. Check expiry if set ────────────────────────────────────
+  if (tokenRec.expires_at && new Date(tokenRec.expires_at) < new Date()) {
+    status.innerHTML = `
+      <span style="color:var(--oz-red)">
+        ⏰ QR code expired.<br>
+        <span style="font-size:.76rem">Ask your manager to regenerate it.</span>
+      </span>`;
+    setTimeout(closeQRScanner, 3500);
+    return;
+  }
+
+  // ── 4. Token mismatch ─────────────────────────────────────────
+  if (scannedToken.trim() !== tokenRec.token.trim()) {
+    status.innerHTML = `
+      <span style="color:var(--oz-red)">
+        ❌ QR code not valid for this shift.<br>
+        <span style="font-size:.76rem">Make sure you are scanning the correct store code.</span>
+      </span>`;
+    // Restart scanner after 3s so they can try again
+    setTimeout(async () => {
+      if (document.getElementById('qr-scanner-overlay').style.display !== 'none') {
+        status.textContent = 'Point your camera at the QR code…';
+        document.getElementById('qr-reader').innerHTML = '';
+        _qrScanner = new Html5Qrcode('qr-reader');
+        try {
+          await _qrScanner.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            (t) => handleQRScan(t, bookingId),
+            () => {}
+          );
+        } catch(e) {}
+      }
+    }, 3000);
+    return;
+  }
+
+  // ── 5. Valid — check for duplicate check-in ───────────────────
+  const { data: existing } = await db
+    .from('attendance_logs')
+    .select('id')
+    .eq('booking_id', bookingId)
+    .maybeSingle();
+
+  if (existing) {
+    status.innerHTML = `
+      <span style="color:var(--oz-green)">
+        ✅ Already checked in for this shift.
+      </span>`;
+    setTimeout(() => { closeQRScanner(); renderMyShift(); }, 1500);
+    return;
+  }
+
+  // ── 6. Write attendance_log row ───────────────────────────────
+  const { data: booking } = await db
+    .from('bookings')
+    .select('store_id')
+    .eq('id', bookingId)
+    .single();
+
+  const { error } = await db
+    .from('attendance_logs')
+    .insert({
+      booking_id:       bookingId,
+      promoter_id:      OZ_ME.id,
+      store_id:         booking?.store_id || null,
+      checked_in_at:    new Date().toISOString(),
+      checkin_device_id: navigator.userAgent.slice(0, 80),
+      checkin_method:   'qr',
+      status:           'checked_in',
+    });
+
+  if (error) {
+    status.innerHTML = `
+      <span style="color:var(--oz-red)">
+        ❌ Check-in failed: ${error.message}
+      </span>`;
+    return;
+  }
+
+  // ── 7. Success ────────────────────────────────────────────────
+  status.innerHTML = `
+    <span style="color:var(--oz-green);font-weight:700">
+      ✅ Checked in successfully!
+    </span>`;
+
+  OZ.toast('📍 Check-in recorded!');
+  setTimeout(() => { closeQRScanner(); renderMyShift(); }, 1200);
+}
+
+function closeQRScanner() {
+  if (_qrScanner) {
+    try { _qrScanner.stop(); } catch(e) {}
+    _qrScanner = null;
+  }
+  const overlay = document.getElementById('qr-scanner-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// ── STEP 2: PHOTO UPLOAD + ALBUM ─────────────────────────────
+async function uploadShiftPhoto(input, bookingId) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const db      = window.supabaseClient;
+  const S       = window.SETTINGS || {};
+  const booking = shiftContext.booking;
+  if (!booking) return;
+
+  // Pull full booking details needed for metadata
+  const campaignLabel = booking.product
+    ? (booking.product.brand
+        ? `${booking.product.brand} — ${booking.product.name}`
+        : booking.product.name)
+    : 'Activation';
+  const storeName = booking.store
+    ? (booking.store.retailer
+        ? `${booking.store.retailer} — ${booking.store.branch}`
+        : booking.store.name)
+    : '—';
+  const pay = booking.total_pay_zar ||
+    ((booking.hourly_rate_zar || S.hourlyRate || 45) *
+     (booking.shift_hours || S.shiftHours || 8));
+
+  // ── Check max photos ────────────────────────────────────────
+  const maxPhotos = S.maxPhotosPerShift || 30;
+  if (shiftContext.photoCount >= maxPhotos) {
+    OZ.toast(`Maximum ${maxPhotos} photos per shift reached`);
+    input.value = '';
+    return;
+  }
+
+  OZ.toast('📤 Uploading…');
+
+  // ── Build storage path ──────────────────────────────────────
+  // Path: shift-photos/{promoter_id}/{booking_id}/{timestamp}-{filename}
+  const ts       = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path     = `${OZ_ME.id}/${bookingId}/${ts}-${safeName}`;
+
+  // ── Upload to Storage ───────────────────────────────────────
+  const { error: upErr } = await db.storage
+    .from('shift-photos')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (upErr) {
+    OZ.toast('❌ Upload failed: ' + upErr.message);
+    input.value = '';
+    return;
+  }
+
+  // ── Get signed URL for immediate display (1hr) ──────────────
+  const { data: signedData } = await db.storage
+    .from('shift-photos')
+    .createSignedUrl(path, 3600);
+  const publicUrl = signedData?.signedUrl || '';
+
+  // ── Insert into shift_photos table with full job context ────
+  const { error: dbErr } = await db
+    .from('shift_photos')
+    .insert({
+      booking_id:    bookingId,
+      attendance_id: shiftContext.attendance?.id || null,
+      promoter_id:   OZ_ME.id,
+      storage_path:  path,
+      file_name:     file.name,
+      file_size_bytes: file.size,
+      mime_type:     file.type,
+      public_url:    publicUrl,
+      // Rich job metadata
+      store_name:    storeName,
+      campaign_name: campaignLabel,
+      shift_date:    booking.shift_date,
+      shift_slot:    booking.shift_slot || null,
+      shift_pay_zar: pay,
+      shift_hours:   booking.shift_hours || S.shiftHours || 8,
+    });
+
+  if (dbErr) {
+    OZ.toast('❌ Could not save photo record: ' + dbErr.message);
+    // Clean up the storage upload
+    await db.storage.from('shift-photos').remove([path]);
+    input.value = '';
+    return;
+  }
+
+  // ── Update local count + refresh album ──────────────────────
+  shiftContext.photoCount++;
+  input.value = '';
+
+  const minPhotos = S.minPhotosPerShift || 10;
+  OZ.toast(`📸 Photo ${shiftContext.photoCount} uploaded!`);
+
+  // Refresh album and counter in the DOM without full page reload
+  await renderPhotoAlbum(bookingId, campaignLabel, booking.shift_date);
+
+  // Update the photo counter text
+  const counterEl = document.querySelector('#page-myshift [data-photo-counter]');
+  if (counterEl) {
+    counterEl.textContent =
+      `${shiftContext.photoCount >= minPhotos ? '✓ ' : ''}${shiftContext.photoCount} / ${minPhotos} photos uploaded`;
+    counterEl.style.color = shiftContext.photoCount >= minPhotos
+      ? 'var(--oz-green)' : 'var(--oz-muted)';
+  }
+
+  // If just hit the minimum, re-render to unlock Step 3
+  if (shiftContext.photoCount === minPhotos) {
+    OZ.toast('✅ Minimum photos reached — Step 3 unlocked!');
+    setTimeout(renderMyShift, 800);
+  }
+}
+
+async function renderPhotoAlbum(bookingId, campaignLabel, shiftDate) {
+  const el = document.getElementById('photo-album-grid');
+  if (!el) return;
+
+  const db = window.supabaseClient;
+  const S  = window.SETTINGS || {};
+  const minPhotos = S.minPhotosPerShift || 10;
+
+  // Fetch all photos for this booking
+  const { data: photos } = await db
+    .from('shift_photos')
+    .select('id, file_name, public_url, storage_path, uploaded_at, file_size_bytes')
+    .eq('booking_id', bookingId)
+    .order('uploaded_at', { ascending: true });
+
+  const list = photos || [];
+
+  if (!list.length) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:1.5rem;color:var(--oz-dim);
+           border:2px dashed var(--oz-border2);border-radius:var(--r)">
+        <div style="font-size:2rem;margin-bottom:.4rem">📷</div>
+        <div style="font-size:.82rem">No photos yet — tap <strong>+ Add Photo</strong> to start</div>
+        <div style="font-size:.75rem;color:var(--oz-dim);margin-top:.25rem">
+          Min ${minPhotos} required · Max ${S.maxPhotosPerShift || 30}
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ── Album tag header ─────────────────────────────────────────
+  const dateLabel = shiftDate
+    ? new Date(shiftDate).toLocaleDateString('en-ZA',
+        { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+    : '—';
+
+  el.innerHTML = `
+    <!-- Album label -->
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.65rem;flex-wrap:wrap">
+      <div style="background:var(--oz-accent);color:#000;font-size:.68rem;font-weight:700;
+           padding:3px 10px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase">
+        📁 ${campaignLabel}
+      </div>
+      <div style="font-size:.72rem;color:var(--oz-dim)">📅 ${dateLabel}</div>
+      <div style="font-size:.72rem;color:${list.length >= minPhotos ? 'var(--oz-green)' : 'var(--oz-muted)'}; margin-left:auto">
+        ${list.length >= minPhotos ? '✓' : ''} ${list.length} / ${minPhotos} min
+      </div>
+    </div>
+
+    <!-- Photo grid -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">
+      ${list.map((photo, i) => {
+        const sizeKb = photo.file_size_bytes
+          ? (photo.file_size_bytes / 1024).toFixed(0) + 'KB'
+          : '';
+        const timeStr = photo.uploaded_at
+          ? new Date(photo.uploaded_at).toLocaleTimeString('en-ZA',
+              { hour:'2-digit', minute:'2-digit' })
+          : '';
+        return `
+        <div style="position:relative;border-radius:8px;overflow:hidden;
+             aspect-ratio:1;background:var(--oz-surface2);
+             border:2px solid var(--oz-border2);cursor:pointer"
+             onclick="previewPhoto('${photo.public_url}','${photo.file_name}','${timeStr}','${sizeKb}')"
+             title="${photo.file_name} · ${timeStr}">
+          ${photo.public_url
+            ? `<img src="${photo.public_url}" alt="Photo ${i+1}"
+                 style="width:100%;height:100%;object-fit:cover;display:block"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : ''}
+          <div style="display:${photo.public_url ? 'none' : 'flex'};
+               align-items:center;justify-content:center;
+               width:100%;height:100%;font-size:1.5rem">📷</div>
+          <!-- Photo number badge -->
+          <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);
+               color:#fff;font-size:.6rem;font-weight:700;padding:2px 6px;
+               border-radius:10px">${i + 1}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Progress bar -->
+    <div style="margin-top:.75rem;background:var(--oz-border2);border-radius:10px;height:6px;overflow:hidden">
+      <div style="height:100%;border-radius:10px;transition:width .4s ease;
+           background:${list.length >= minPhotos ? 'var(--oz-green)' : 'var(--oz-accent)'};
+           width:${Math.min(100, Math.round((list.length / minPhotos) * 100))}%">
+      </div>
+    </div>
+  `;
+}
+
+// ── Photo preview lightbox ────────────────────────────────────
+function previewPhoto(url, name, time, size) {
+  if (!url) return;
+  // Create a simple overlay lightbox
+  const existing = document.getElementById('photo-lightbox');
+  if (existing) existing.remove();
+
+  const lb = document.createElement('div');
+  lb.id = 'photo-lightbox';
+  lb.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.93);
+    z-index:9998;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:1.5rem;cursor:pointer`;
+  lb.onclick = () => lb.remove();
+  lb.innerHTML = `
+    <img src="${url}" alt="${name}"
+      style="max-width:100%;max-height:75vh;border-radius:10px;
+             object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.6)">
+    <div style="margin-top:.85rem;text-align:center">
+      <div style="color:#fff;font-size:.82rem;font-weight:600">${name}</div>
+      <div style="color:rgba(255,255,255,.45);font-size:.72rem;margin-top:3px">
+        ${time ? '🕐 ' + time : ''} ${size ? '· ' + size : ''}
+      </div>
+      <div style="color:rgba(255,255,255,.3);font-size:.7rem;margin-top:.5rem">
+        Tap anywhere to close
+      </div>
+    </div>`;
+  document.body.appendChild(lb);
+}
+
+
+// ── STEP 3: FEEDBACK REPORT ───────────────────────────────────
+function openFeedbackModal(bookingId, storeId, promoterId) {
+  const modal   = document.getElementById('modal-feedback');
+  const booking = shiftContext.booking;
+
+  // Store IDs on modal for submitFeedback to read
+  modal.setAttribute('data-booking',  bookingId);
+  modal.setAttribute('data-store',    storeId);
+  modal.setAttribute('data-promoter', promoterId);
+
+  // Fill the shift context pill at the top of the modal
+  const label = document.getElementById('feedback-shift-label');
+  if (label && booking) {
+    const campaignLabel = booking.product
+      ? (booking.product.brand
+          ? `${booking.product.brand} — ${booking.product.name}`
+          : booking.product.name)
+      : 'Activation';
+    const storeName = booking.store
+      ? (booking.store.retailer
+          ? `${booking.store.retailer} — ${booking.store.branch}`
+          : booking.store.name)
+      : '—';
+    const dateStr = booking.shift_date
+      ? new Date(booking.shift_date).toLocaleDateString('en-ZA',
+          { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+      : '—';
+    label.innerHTML = `
+      <strong style="color:var(--oz-text)">${campaignLabel}</strong><br>
+      🏪 ${storeName} &nbsp;·&nbsp; 📅 ${dateStr} &nbsp;·&nbsp; 🕐 ${booking.shift_slot || '—'}
+    `;
+  }
+
+  // Reset form fields
+  ['fb-customers','fb-sales','fb-stock','fb-challenges'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('fb-rating').value = '';
+  setRating(0); // clear stars
+
+  OZ.openModal('modal-feedback');
+}
+
+function setRating(n) {
+  document.getElementById('fb-rating').value = n;
+  document.querySelectorAll('#rating-stars button').forEach(btn => {
+    const star = parseInt(btn.dataset.star);
+    btn.textContent  = star <= n ? '⭐' : '☆';
+    btn.style.transform = star === n ? 'scale(1.25)' : 'scale(1)';
+  });
+}
+
+async function submitFeedback() {
+  const modal      = document.getElementById('modal-feedback');
+  const bookingId  = modal.getAttribute('data-booking');
+  const storeId    = modal.getAttribute('data-store');
+  const promoterId = modal.getAttribute('data-promoter');
+  const db         = window.supabaseClient;
+
+  // ── Validation ───────────────────────────────────────────────
+  const customers = document.getElementById('fb-customers')?.value.trim();
+  const rating    = parseInt(document.getElementById('fb-rating')?.value || '0');
+
+  if (!customers) {
+    OZ.toast('⚠️ Customer responses field is required');
+    return;
+  }
+  if (!rating) {
+    OZ.toast('⚠️ Please give the shift a star rating');
+    return;
+  }
+
+  // ── Prevent duplicate submit ──────────────────────────────────
+  const { data: existing } = await db
+    .from('shift_reports')
+    .select('id')
+    .eq('booking_id', bookingId)
+    .maybeSingle();
+
+  if (existing) {
+    OZ.toast('Report already submitted for this shift');
+    OZ.closeModal('modal-feedback');
+    return;
+  }
+
+  // ── Insert into shift_reports ────────────────────────────────
+  const attId = shiftContext.attendance?.id || null;
+
+  const { error } = await db
+    .from('shift_reports')
+    .insert({
+      booking_id:          bookingId,
+      attendance_id:       attId,
+      promoter_id:         promoterId || OZ_ME.id,
+      customer_responses:  customers,
+      sales_observations:  document.getElementById('fb-sales')?.value.trim()      || null,
+      stock_issues:        document.getElementById('fb-stock')?.value.trim()       || null,
+      challenges:          document.getElementById('fb-challenges')?.value.trim()  || null,
+      rating:              rating,
+      overall_rating:      rating,
+      submitted_at:        new Date().toISOString(),
+    });
+
+  if (error) {
+    OZ.toast('❌ Could not save report: ' + error.message);
+    return;
+  }
+
+  shiftContext.reportDone = true;
+  OZ.closeModal('modal-feedback');
+  OZ.toast('📝 Report submitted!');
+
+  // Re-render to unlock Step 4 if all conditions met
+  setTimeout(renderMyShift, 600);
+}
+
+// ── STEP 4: CHECK OUT ─────────────────────────────────────────
+async function doCheckout(bookingId, attId) {
+  const db = window.supabaseClient;
+  const S  = window.SETTINGS || {};
+  const sym = S.currencySymbol || 'R';
+
+  // ── Guard: re-check all conditions from DB ───────────────────
+  // Prevents bypassing via DOM manipulation
+  const [photoRes, reportRes] = await Promise.all([
+    db.from('shift_photos')
+      .select('id', { count:'exact', head:true })
+      .eq('booking_id', bookingId),
+    db.from('shift_reports')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .maybeSingle(),
+  ]);
+
+  const photoCount = photoRes.count || 0;
+  const minPhotos  = S.minPhotosPerShift || 10;
+  const reportDone = !!reportRes.data;
+
+  if (photoCount < minPhotos) {
+    OZ.toast(`⚠️ Upload ${minPhotos - photoCount} more photo${minPhotos - photoCount !== 1 ? 's' : ''} before checking out`);
+    return;
+  }
+  if (S.requireFeedbackBeforeCheckout && !reportDone) {
+    OZ.toast('⚠️ Submit your feedback report before checking out');
+    return;
+  }
+
+  // ── Confirm ──────────────────────────────────────────────────
+  const booking = shiftContext.booking;
+  const pay = booking?.total_pay_zar ||
+    ((booking?.hourly_rate_zar || S.hourlyRate || 45) *
+     (booking?.shift_hours     || S.shiftHours || 8));
+
+  const confirmed = confirm(
+    `Sign off this shift?\n\n` +
+    `This will record your check-out time and mark the shift complete.\n` +
+    `Payment of ${sym}${Number(pay).toLocaleString()} will be processed within ` +
+    `${S.paymentTermsDays || 5} business days.`
+  );
+  if (!confirmed) return;
+
+  const now = new Date().toISOString();
+
+  // ── 1. Update attendance_logs ────────────────────────────────
+  if (attId) {
+    const { error: attErr } = await db
+      .from('attendance_logs')
+      .update({
+        checked_out_at: now,
+        status:         'checked_out',
+      })
+      .eq('id', attId);
+
+    if (attErr) {
+      OZ.toast('❌ Check-out failed: ' + attErr.message);
+      return;
+    }
+  } else {
+    // Edge case: no attendance log found — create a minimal one
+    const { error: insErr } = await db
+      .from('attendance_logs')
+      .insert({
+        booking_id:     bookingId,
+        promoter_id:    OZ_ME.id,
+        store_id:       booking?.store?.id || null,
+        checked_out_at: now,
+        status:         'checked_out',
+        photo_count:    photoCount,
+      });
+    if (insErr) {
+      OZ.toast('❌ Check-out failed: ' + insErr.message);
+      return;
+    }
+  }
+
+  // ── 2. Update attendance photo_count ─────────────────────────
+  if (attId) {
+    await db
+      .from('attendance_logs')
+      .update({ photo_count: photoCount })
+      .eq('id', attId);
+  }
+
+  // ── 3. Mark booking as completed ────────────────────────────
+  const { error: bkErr } = await db
+    .from('bookings')
+    .update({
+      status:     'completed',
+      updated_at: now,
+    })
+    .eq('id', bookingId);
+
+  if (bkErr) {
+    // Non-fatal — attendance is already saved, just warn
+    console.warn('Could not mark booking completed:', bkErr.message);
+  }
+
+  // ── 4. Update promoter total_shifts count ────────────────────
+  const { data: profile } = await db
+    .from('promoter_profiles')
+    .select('id, total_shifts')
+    .eq('user_id', OZ_ME.id)
+    .maybeSingle();
+
+  if (profile) {
+    await db
+      .from('promoter_profiles')
+      .update({ total_shifts: (profile.total_shifts || 0) + 1 })
+      .eq('id', profile.id);
+  }
+
+  // ── 5. Reset shiftContext ────────────────────────────────────
+  shiftContext = {
+    booking:    null,
+    attendance: null,
+    photoCount: 0,
+    reportDone: false,
+  };
+
+  // ── 6. Show completion screen ────────────────────────────────
+  const el = document.getElementById('page-myshift');
+  const campaignLabel = booking?.product
+    ? (booking.product.brand
+        ? `${booking.product.brand} — ${booking.product.name}`
+        : booking.product.name)
+    : 'Activation';
+  const storeName = booking?.store
+    ? (booking.store.retailer
+        ? `${booking.store.retailer} — ${booking.store.branch}`
+        : booking.store.name)
+    : '—';
+
+  el.innerHTML = `
+  <div class="page-header">
+    <div class="page-header-left"><h1>Active Shift</h1><p>Today's activation</p></div>
+  </div>
+  <div class="card" style="text-align:center;padding:3rem 2rem;
+       border:2px solid var(--oz-green);margin-bottom:1rem">
+    <div style="font-size:3.5rem;margin-bottom:.75rem">🎉</div>
+    <div style="font-weight:700;font-size:1.2rem;color:var(--oz-green);margin-bottom:.4rem">
+      Shift Complete!
+    </div>
+    <div style="font-size:.88rem;color:var(--oz-muted);margin-bottom:1.5rem;
+         line-height:1.7;max-width:320px;margin-left:auto;margin-right:auto">
+      <strong style="color:var(--oz-text)">${campaignLabel}</strong><br>
+      🏪 ${storeName}<br>
+      📅 ${booking?.shift_date
+        ? new Date(booking.shift_date).toLocaleDateString('en-ZA',
+            { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+        : '—'}<br>
+      🕐 ${booking?.shift_slot || '—'} &nbsp;·&nbsp;
+      📸 ${photoCount} photos
+    </div>
+    <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);
+         border-radius:var(--r);padding:1rem 1.5rem;display:inline-block;margin-bottom:1.5rem">
+      <div style="font-size:.75rem;color:var(--oz-muted);margin-bottom:.2rem">
+        Earnings for this shift
+      </div>
+      <div style="font-size:2rem;font-weight:700;color:var(--oz-green)">
+        ${sym}${Number(pay).toLocaleString()}
+      </div>
+      <div style="font-size:.74rem;color:var(--oz-dim);margin-top:.2rem">
+        Processed within ${S.paymentTermsDays || 5} business days
+      </div>
+    </div>
+    <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-accent" onclick="showPage('mypay')">
+        💰 View My Pay
+      </button>
+      <button class="btn btn-outline" onclick="showPage('mybookings')">
+        📅 My Bookings
+      </button>
+    </div>
+  </div>`;
+
+  OZ.toast('✅ Shift signed off — well done!');
+}
 
 // ── MY PAY — Supabase wired ───────────────────────────────────
 async function renderMyPay() {

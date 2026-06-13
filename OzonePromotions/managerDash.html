@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -302,6 +303,7 @@
 <script src="javascript/supabase.js"></script>
 <script src="javascript/auth-session.js"></script>
 <script src="javascript/index.js"></script>
+<script src="javascript/bookings-modals.js"></script>
 
 <script>
 // ── SESSION CHECK ─────────────────────────────────────────────
@@ -529,74 +531,350 @@ function renderDashboard() {
 let _selectedPromoters = [];
 
 async function renderBookings() {
-  const el = document.getElementById('page-bookings');
-  const S  = window.SETTINGS;
-  const period  = window.period_bookings || 'month';
-  const search  = document.getElementById('bk-search')?.value  || '';
-  const statusF = document.getElementById('bk-status-filter')?.value || 'all';
+  const el    = document.getElementById('page-bookings');
+  const S     = window.SETTINGS;
+  const today = new Date().toISOString().split('T')[0];
+  const tab   = window.bk_tab || 'upcoming';
+  const search= document.getElementById('bk-search')?.value || '';
 
-  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)"><div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading job offers…</div>`;
+  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)">
+    <div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading…</div>`;
 
-  const db = window.supabaseClient;
-  let q = db.from('bookings').select(`
-    id, ref_number, shift_date, shift_slot, shift_hours, hourly_rate_zar, total_pay_zar,
-    status, notes_for_promoter, required_promoters, province_target,
-    promoter:promoter_id(first_name,last_name),
-    store:store_id(name,retailer,branch),
-    product:product_id(name,brand)
-  `).order('shift_date', { ascending: false }).limit(300);
+    await sweepPastBookings();
 
-  const [from, to] = OZ.getPeriodFilter ? OZ.getPeriodFilter(period) : [null,null];
-  if (from) q = q.gte('shift_date', from);
-  if (to)   q = q.lte('shift_date', to);
-  if (statusF !== 'all') q = q.eq('status', statusF);
+  // ── Fetch from Supabase ──────────────────────────────────────
+  const { data: rows } = await window.supabaseClient
+    .from('bookings')
+    .select(`
+      id, ref_number, shift_date, shift_slot, shift_hours,
+      hourly_rate_zar, status, notes_for_promoter,
+      required_promoters, province_target,
+      promoter:promoter_id(first_name,last_name),
+      store:store_id(name,retailer,branch),
+      product:product_id(name,brand)
+    `)
+    .order('shift_date', { ascending: false })
+    .limit(500);
 
-  const { data: rows } = await q;
-  let data = rows || [];
-  if (search) data = data.filter(b => {
-    const name  = b.promoter ? `${b.promoter.first_name} ${b.promoter.last_name}` : '';
-    const store = b.store ? `${b.store.name} ${b.store.branch||''}` : '';
-    return (name + store).toLowerCase().includes(search.toLowerCase());
+  let all = rows || [];
+
+  // Search filter (applies to all tabs)
+  if (search) {
+    all = all.filter(b => {
+      const n = b.promoter ? `${b.promoter.first_name} ${b.promoter.last_name}` : '';
+      const s = b.store    ? `${b.store.retailer||''} ${b.store.branch||b.store.name}` : '';
+      const p = b.product  ? `${b.product.brand||''} ${b.product.name}` : '';
+      return (n+s+p).toLowerCase().includes(search.toLowerCase());
+    });
+  }
+
+  // ── Split into tabs ──────────────────────────────────────────
+  const upcoming = all.filter(b =>
+    b.shift_date >= today && (b.status === 'confirmed' || b.status === 'pending')
+  );
+  const awaitingReply = all.filter(b =>
+    b.status === 'pending'
+  );
+// Group ALL upcoming offers by store+date to get accurate required vs confirmed counts.
+  // required_promoters is stored on every row for that offer — use the max (in case rows differ).
+  const offerGroups = {};
+  all.filter(b => b.shift_date >= today).forEach(b => {
+    const key = `${b.store?.id}_${b.shift_date}`;
+    if (!offerGroups[key]) {
+      offerGroups[key] = {
+        required: b.required_promoters || 1,
+        confirmed: 0,
+        pending: 0,
+        declined: 0,
+        sample: b,
+      };
+    }
+    // Keep the highest required number seen across rows for this group
+    offerGroups[key].required = Math.max(offerGroups[key].required, b.required_promoters||1);
+    if (b.status === 'confirmed') offerGroups[key].confirmed++;
+    if (b.status === 'pending')   offerGroups[key].pending++;
+    if (b.status === 'declined')  offerGroups[key].declined++;
   });
+  const shortStaffed = Object.values(offerGroups).filter(g => g.confirmed < g.required);
 
-  const fmtStore    = b => b.store    ? (b.store.retailer    ? `${b.store.retailer} — ${b.store.branch}`       : b.store.name)  : '—';
-  const fmtCampaign = b => b.product  ? (b.product.brand     ? `${b.product.brand} · ${b.product.name}`        : b.product.name): '—';
-  const fmtPromoter = b => b.promoter ? `${b.promoter.first_name} ${b.promoter.last_name}` : (b.province_target ? `📍 ${b.province_target}` : '—');
+  // Attach group stats to each booking row so the card can show them
+  all.forEach(b => {
+    const key = `${b.store?.id}_${b.shift_date}`;
+    b._group = offerGroups[key] || null;
+  });
+  const past = all.filter(b =>
+    b.shift_date < today || b.status === 'cancelled' || b.status === 'declined'
+  );
+
+  const tabData = { upcoming, awaiting: awaitingReply, short: shortStaffed, past };
+  const counts  = {
+    upcoming: upcoming.length,
+    awaiting: awaitingReply.length,
+    short:    shortStaffed.length,
+    past:     past.length,
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────
+  const fmtStore = b => b.store
+    ? (b.store.retailer ? `${b.store.retailer} — ${b.store.branch}` : b.store.name) : '—';
+  const fmtCamp  = b => b.product
+    ? (b.product.brand  ? `${b.product.brand} · ${b.product.name}` : b.product.name) : '—';
+  const fmtName  = b => b.promoter
+    ? `${b.promoter.first_name} ${b.promoter.last_name}`
+    : (b.province_target ? `📍 ${b.province_target}` : '—');
+  const fmtDate  = d => {
+    const dt  = new Date(d);
+    const day = dt.toLocaleDateString('en-ZA',{weekday:'short'});
+    const num = dt.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'});
+    return `<span style="font-weight:600">${day}</span> ${num}`;
+  };
+  const daysAway = d => {
+    const diff = Math.round((new Date(d) - new Date(today)) / 86400000);
+    if (diff === 0) return `<span style="color:var(--oz-accent);font-weight:700">Today</span>`;
+    if (diff === 1) return `<span style="color:var(--oz-green);font-weight:600">Tomorrow</span>`;
+    if (diff  >  1) return `<span style="color:var(--oz-muted)">In ${diff} days</span>`;
+    return `<span style="color:var(--oz-dim)">${Math.abs(diff)}d ago</span>`;
+  };
+  const payAmt = b =>
+    `R${((b.hourly_rate_zar||S.hourlyRate)*(b.shift_hours||S.shiftHours)).toLocaleString()}`;
+
+// ── Row renderer (card style) ─────────────────────────────────
+ function jobCard(b, showPast=false) {
+    const isPast  = b.shift_date < today;
+    const status  = isPast && b.status !== 'cancelled' && b.status !== 'declined'
+      ? 'completed' : b.status;
+
+    const statusCfg = {
+      confirmed: { cls:'badge-green',  label:'✓ Confirmed'  },
+      pending:   { cls:'badge-amber',  label:'⏳ Awaiting'  },
+      cancelled: { cls:'badge-gray',   label:'Cancelled'    },
+      declined:  { cls:'badge-red',    label:'Declined'     },
+      completed: { cls:'badge-cyan',   label:'Completed'    },
+    };
+    const sc = statusCfg[status] || { cls:'badge-gray', label:status };
+
+    const borderColor = isPast          ? 'var(--oz-dim)'
+      : status === 'confirmed'          ? 'var(--oz-green)'
+      : status === 'pending'            ? 'var(--oz-accent3)'
+      : 'var(--oz-dim)';
+
+    const g = b._group;
+    const showStaff = g && g.required > 0;
+    const isShort   = showStaff && g.confirmed < g.required && !isPast;
+    const isFull    = showStaff && g.confirmed >= g.required;
+
+    const staffBar = showStaff ? (() => {
+      const pct = Math.min(100, Math.round((g.confirmed / g.required) * 100));
+      const col = g.confirmed >= g.required ? 'var(--oz-green)'
+                : g.confirmed > 0           ? 'var(--oz-accent3)'
+                : 'var(--oz-red)';
+      return `
+      <div style="margin-top:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:.72rem;margin-bottom:3px">
+          <span style="color:var(--oz-muted)">👥 Staffing</span>
+          <span style="font-weight:700;color:${col}">
+            ${g.confirmed} / ${g.required} accepted
+            ${isShort ? `<span style="color:var(--oz-accent3);margin-left:4px">⚠ short ${g.required - g.confirmed}</span>` : ''}
+            ${isFull  ? `<span style="color:var(--oz-green);margin-left:4px">✓ Full</span>` : ''}
+          </span>
+        </div>
+        <div style="height:5px;background:var(--oz-surface2);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${col};border-radius:3px;transition:width .3s"></div>
+        </div>
+        ${g.pending > 0 && !isPast && !isFull
+          ? `<div style="font-size:.68rem;color:var(--oz-dim);margin-top:2px">${g.pending} still pending reply</div>` : ''}
+      </div>`;
+    })() : '';
+
+    // Build the offer group key to look up all rows for this offer
+    const groupKey = `${b.store_id||''}__${b.shift_date||''}__${b.product_id||''}`;
+
+    return `
+    <div style="background:var(--oz-card);border:1px solid var(--oz-border);
+         border-left:4px solid ${borderColor};border-radius:var(--r-lg);
+         padding:1rem 1.2rem;display:flex;align-items:flex-start;
+         gap:1rem;flex-wrap:wrap;opacity:${isPast ? .72 : 1};transition:opacity .2s">
+
+      <!-- Date pill -->
+      <div style="min-width:80px;text-align:center;background:var(--oz-surface2);
+           border:1px solid var(--oz-border);border-radius:var(--r);
+           padding:8px 10px;flex-shrink:0">
+        <div style="font-size:1.35rem;font-weight:800;font-family:var(--font-h);
+             line-height:1;color:${isPast ? 'var(--oz-dim)' : 'var(--oz-text)'}">
+          ${new Date(b.shift_date).getDate()}
+        </div>
+        <div style="font-size:.67rem;color:var(--oz-muted);text-transform:uppercase;
+             letter-spacing:.5px;margin-top:2px">
+          ${new Date(b.shift_date).toLocaleDateString('en-ZA',{month:'short'})}
+          ${new Date(b.shift_date).getFullYear()}
+        </div>
+        <div style="margin-top:4px;font-size:.69rem">${daysAway(b.shift_date)}</div>
+      </div>
+
+      <!-- Main info -->
+      <div style="flex:1;min-width:170px">
+        <div style="font-weight:700;font-size:.92rem;margin-bottom:2px">${fmtStore(b)}</div>
+        <div style="font-size:.79rem;color:var(--oz-accent);margin-bottom:3px">${fmtCamp(b)}</div>
+        <div style="font-size:.77rem;color:var(--oz-muted)">
+          👤 ${fmtName(b)} &nbsp;·&nbsp; 🕐 ${b.shift_slot || '—'}
+        </div>
+        ${staffBar}
+      </div>
+
+      <!-- Right side: status + pay + actions -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <span class="badge ${sc.cls}">${sc.label}</span>
+        <span class="pay-badge">💰 ${payAmt(b)}</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          <!-- Who accepted button — always shown when group exists -->
+          ${showStaff && g.confirmed > 0
+            ? `<button class="btn btn-sm btn-ghost"
+                 onclick="showAcceptedModal('${groupKey}')"
+                 title="See who accepted this offer">
+                 👥 ${g.confirmed} Accepted
+               </button>` : ''}
+          <!-- QR button — only when full or past -->
+          ${isFull || (isPast && (status === 'completed' || b.status === 'confirmed'))
+            ? `<button class="btn btn-sm btn-outline"
+                 onclick="showJobQR('${groupKey}')"
+                 title="Generate QR codes for this activation">
+                 📲 QR Codes
+               </button>` : ''}
+          <!-- Cancel — pending only -->
+          ${!isPast && b.status === 'pending'
+            ? `<button class="btn btn-sm btn-danger"
+                 onclick="cancelOffer('${b.id}')">Cancel</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Short-staffed card ────────────────────────────────────────
+  function shortCard(g) {
+    const b = g.sample;
+    return `
+    <div style="background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.3);
+         border-left:4px solid var(--oz-accent3);border-radius:var(--r-lg);
+         padding:1rem 1.2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <div style="font-size:1.6rem">⚠️</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:.9rem;color:var(--oz-accent3);margin-bottom:2px">
+          Short-staffed — ${g.count}/${g.required} confirmed
+        </div>
+        <div style="font-size:.82rem;font-weight:600">${fmtStore(b)}</div>
+        <div style="font-size:.78rem;color:var(--oz-muted)">
+          📅 ${b.shift_date} &nbsp;·&nbsp; 🛍 ${fmtCamp(b)}
+        </div>
+      </div>
+      <button class="btn btn-sm btn-warning"
+        onclick="openJobOfferModal()">+ Post More</button>
+    </div>`;
+  }
+
+  // ── Section header ─────────────────────────────────────────────
+  function sectionHead(icon, label, count, color='var(--oz-muted)') {
+    return `<div style="display:flex;align-items:center;gap:8px;
+         margin:1.4rem 0 .65rem;padding-bottom:.5rem;
+         border-bottom:1px solid var(--oz-border)">
+      <span style="font-size:1.1rem">${icon}</span>
+      <span style="font-family:var(--font-h);font-size:.82rem;font-weight:700;
+           color:${color};text-transform:uppercase;letter-spacing:.5px">${label}</span>
+      <span style="background:var(--oz-surface2);border:1px solid var(--oz-border);
+           border-radius:20px;font-size:.7rem;padding:1px 8px;color:var(--oz-muted)">${count}</span>
+    </div>`;
+  }
+
+  // ── Assemble page ─────────────────────────────────────────────
+  const tabItems = tab === 'upcoming' ? upcoming
+    : tab === 'awaiting'              ? awaitingReply
+    : tab === 'past'                  ? past
+    : [];
 
   el.innerHTML = `
   <div class="page-header">
-    <div class="page-header-left"><h1>Job Offers</h1><p>Post upcoming activations — province broadcast or hand-pick</p></div>
-    <div class="page-header-actions"><button class="btn btn-accent" onclick="openJobOfferModal()">+ Post Job Offer</button></div>
+    <div class="page-header-left">
+      <h1>Job Offers</h1>
+      <p>Post, track and manage all activations</p>
+    </div>
+    <div class="page-header-actions">
+      <button class="btn btn-accent" onclick="openJobOfferModal()">+ Post Job Offer</button>
+    </div>
   </div>
-  <div class="filter-bar">
-    <input type="text" id="bk-search" placeholder="🔍 Search promoter or store…" value="${search}" oninput="renderBookings()">
-    <select id="bk-status-filter" onchange="renderBookings()">
-      <option value="all"${statusF==='all'?' selected':''}>All Status</option>
-      <option value="pending"${statusF==='pending'?' selected':''}>Pending</option>
-      <option value="confirmed"${statusF==='confirmed'?' selected':''}>Confirmed</option>
-      <option value="declined"${statusF==='declined'?' selected':''}>Declined</option>
-      <option value="completed"${statusF==='completed'?' selected':''}>Completed</option>
-    </select>
-    ${OZ.periodTabsHtml('bookings','renderBookings()')}
-    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} offer${data.length!==1?'s':''}</span>
+
+  <!-- Tab bar -->
+  <div style="display:flex;gap:0;background:var(--oz-surface2);border:1px solid var(--oz-border);
+       border-radius:var(--r);overflow:hidden;margin-bottom:1.2rem;width:fit-content">
+    ${[
+      ['upcoming', '📅', 'Upcoming',    counts.upcoming,  'var(--oz-accent)'],
+      ['awaiting', '⏳', 'Awaiting Reply', counts.awaiting,'var(--oz-accent3)'],
+      ['short',    '⚠️', 'Short-staffed', counts.short,   'var(--oz-accent3)'],
+      ['past',     '🗂',  'History',      counts.past,    'var(--oz-dim)'],
+    ].map(([t,icon,label,cnt,col]) => `
+      <button onclick="window.bk_tab='${t}';renderBookings()"
+        style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:none;
+               cursor:pointer;font-family:var(--font-b);font-size:.82rem;white-space:nowrap;
+               transition:all .15s;
+               background:${tab===t?'rgba(255,255,255,.06)':'transparent'};
+               color:${tab===t?col:'var(--oz-dim)'};
+               border-bottom:${tab===t?`2px solid ${col}`:'2px solid transparent'}">
+        ${icon} ${label}
+        ${cnt>0?`<span style="background:${tab===t?col:'var(--oz-dim)'};color:${tab===t?'#080d1a':'var(--oz-bg)'};
+                 border-radius:20px;font-size:.65rem;padding:1px 6px;font-weight:700">${cnt}</span>`:''}
+      </button>`).join('')}
   </div>
-  <div class="card"><div class="table-wrap"><table>
-    <thead><tr><th>Ref</th><th>Sent To</th><th>Store</th><th>Campaign</th><th>Date</th><th>Slot</th><th>Pay/Promoter</th><th>Required</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody>
-    ${data.length ? data.map(b => `<tr>
-      <td><code style="font-size:.72rem;color:var(--oz-accent)">${b.ref_number}</code></td>
-      <td style="font-size:.82rem">${fmtPromoter(b)}</td>
-      <td style="font-size:.8rem">${fmtStore(b)}</td>
-      <td style="font-size:.78rem;color:var(--oz-muted);max-width:150px">${fmtCampaign(b)}</td>
-      <td>${b.shift_date}</td>
-      <td style="font-size:.76rem;color:var(--oz-dim)">${b.shift_slot}</td>
-      <td><span class="pay-badge">R${((b.hourly_rate_zar||S.hourlyRate)*(b.shift_hours||S.shiftHours)).toLocaleString()}</span></td>
-      <td><span class="badge badge-cyan">${b.required_promoters || 1} needed</span></td>
-      <td><span class="badge ${b.status==='confirmed'?'badge-green':b.status==='declined'?'badge-red':b.status==='completed'?'badge-cyan':'badge-amber'}">${b.status}</span></td>
-      <td>${b.status==='pending'?`<button class="btn btn-sm btn-danger" onclick="cancelOffer('${b.id}')">Cancel</button>`:`<span style="font-size:.76rem;color:var(--oz-dim)">—</span>`}</td>
-    </tr>`).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--oz-dim);padding:2rem">No job offers for this period</td></tr>`}
-    </tbody>
-  </table></div></div>`;
+
+  <!-- Search -->
+  <div class="filter-bar" style="margin-bottom:1rem">
+    <input type="text" id="bk-search" placeholder="🔍 Search store, promoter or campaign…"
+      value="${search}" oninput="renderBookings()"
+      style="min-width:260px">
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">
+      ${tabItems.length || shortStaffed.length} result${(tabItems.length||shortStaffed.length)!==1?'s':''}
+    </span>
+  </div>
+
+  <!-- Tab content -->
+  <div style="display:flex;flex-direction:column;gap:.65rem">
+
+  ${tab === 'upcoming' ? `
+    ${shortStaffed.length ? sectionHead('⚠️','Needs Attention — Short-staffed',shortStaffed.length,'var(--oz-accent3)')+shortStaffed.map(g=>shortCard(g)).join('') : ''}
+    ${upcoming.length
+      ? sectionHead('📅','Upcoming Activations',upcoming.length,'var(--oz-accent)')+upcoming.map(b=>jobCard(b)).join('')
+      : `<div class="card" style="text-align:center;padding:2.5rem;color:var(--oz-dim)">
+           <div style="font-size:2rem;margin-bottom:.5rem">📭</div>
+           No upcoming activations. <a onclick="openJobOfferModal()"
+             style="color:var(--oz-accent);cursor:pointer">Post one now →</a>
+         </div>`}
+  ` : ''}
+
+  ${tab === 'awaiting' ? `
+    ${awaitingReply.length
+      ? awaitingReply.map(b=>jobCard(b)).join('')
+      : `<div class="card" style="text-align:center;padding:2.5rem;color:var(--oz-dim)">
+           <div style="font-size:2rem;margin-bottom:.5rem">✅</div>
+           No offers waiting for a response.
+         </div>`}
+  ` : ''}
+
+  ${tab === 'short' ? `
+    ${shortStaffed.length
+      ? shortStaffed.map(g=>shortCard(g)).join('')
+      : `<div class="card" style="text-align:center;padding:2.5rem;color:var(--oz-dim)">
+           <div style="font-size:2rem;margin-bottom:.5rem">👥</div>
+           All upcoming activations are fully staffed.
+         </div>`}
+  ` : ''}
+
+  ${tab === 'past' ? `
+    ${sectionHead('🗂','Past & Cancelled Jobs',past.length,'var(--oz-dim)')}
+    ${past.length
+      ? past.map(b=>jobCard(b,true)).join('')
+      : `<div class="card" style="text-align:center;padding:2.5rem;color:var(--oz-dim)">
+           No history yet.
+         </div>`}
+  ` : ''}
+
+  </div>`;
 }
 
 async function openJobOfferModal() {
@@ -739,37 +1017,7 @@ async function cancelOffer(id) {
 }
 
 
-function onCampaignSelect() {
-  const pSel     = document.getElementById('bk-product');
-  const dateEl   = document.getElementById('bk-date');
-  const infoEl   = document.getElementById('bk-date-info');
-  const selected = pSel.options[pSel.selectedIndex];
-  const start    = selected?.dataset.start;
-  const end      = selected?.dataset.end;
-  const today    = new Date().toISOString().split('T')[0];
-
-  if (start && end) {
-    // Constrain to campaign window — but never allow past dates
-    dateEl.min   = start > today ? start : today;
-    dateEl.max   = end;
-    dateEl.value = '';
-    if (infoEl) infoEl.innerHTML = `<span style="color:var(--oz-accent);font-size:.78rem">📅 Campaign runs ${start} → ${end}. Pick any shift date within this window.</span>`;
-  } else if (start) {
-    dateEl.min   = start > today ? start : today;
-    dateEl.max   = '';
-    dateEl.value = '';
-    if (infoEl) infoEl.innerHTML = `<span style="color:var(--oz-accent);font-size:.78rem">📅 Campaign starts ${start}. No end date set.</span>`;
-  } else {
-    // No dates on campaign — fall back to today onwards
-    dateEl.min   = today;
-    dateEl.max   = '';
-    dateEl.value = '';
-    if (infoEl) infoEl.innerHTML = `<span style="color:var(--oz-dim);font-size:.78rem">⚠️ No campaign dates set — you can pick any future date.</span>`;
-  }
-}
-
-
-
+// ── Who Accepted modal ────────────────────────────────────────
 
 
 
@@ -1024,122 +1272,388 @@ function renderPhotos() {
   </div>`).join('') : `<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No photo records for this period</div>`}`;
 }
 
-// ── STORE QR ──────────────────────────────────────────────────
-function renderStoreQR() {
-  const storeF  = document.getElementById('qr-store')?.value  || 'all';
-  const statusF = document.getElementById('qr-status')?.value || 'upcoming';
+// ── STORE QR CODES ────────────────────────────────────────────
+async function renderStoreQR() {
+  const db      = window.supabaseClient;
+  const today   = new Date().toISOString().split('T')[0];
+  const storeF  = document.getElementById('qr-store')?.value    || 'all';
+  const campF   = document.getElementById('qr-campaign')?.value || 'all';
+  const statusF = document.getElementById('qr-status')?.value   || 'upcoming';
+  const el      = document.getElementById('page-storeqr');
 
-  // Pull confirmed bookings — these are the activations that need QR codes
-  let data = window.ACTIVATIONS.filter(a => a.bookingStatus === 'confirmed');
-  if (storeF  !== 'all')      data = data.filter(a => a.store === storeF);
-  if (statusF === 'upcoming') data = data.filter(a => new Date(a.date) >= new Date(new Date().toDateString()));
-  if (statusF === 'past')     data = data.filter(a => new Date(a.date) <  new Date(new Date().toDateString()));
+  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)">
+    <div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading…</div>`;
 
-  const S = window.SETTINGS;
+  // 1 ── Stores from DB
+  const { data: storesData } = await db
+    .from('stores').select('id,name,retailer,branch').eq('status','active').order('name');
+  const stores = storesData || [];
 
-  document.getElementById('page-storeqr').innerHTML = `
+  // 2 ── Active campaigns from DB
+  const { data: campData } = await db
+    .from('products').select('id,name,brand').eq('status','active').order('name');
+  const campaigns = campData || [];
+
+  // 3 ── Confirmed bookings with joined store + product + promoter
+  let bkQ = db.from('bookings').select(`
+    id, ref_number, shift_date, shift_slot, status,
+    store:store_id(id,name,retailer,branch),
+    product:product_id(id,name,brand),
+    promoter:promoter_id(first_name,last_name)
+  `).eq('status','confirmed').order('shift_date',{ascending:false});
+
+  if (statusF === 'upcoming') bkQ = bkQ.gte('shift_date', today);
+  if (statusF === 'past')     bkQ = bkQ.lt('shift_date',  today);
+  if (storeF  !== 'all')      bkQ = bkQ.eq('store_id',    storeF);
+
+  const { data: bookings } = await bkQ;
+  let rows = bookings || [];
+  if (campF !== 'all') rows = rows.filter(b => b.product?.id === campF);
+
+  // 4 ── Existing QR tokens for these bookings
+  const bookingIds = rows.map(b => b.id);
+  let tokenMap = {};
+  if (bookingIds.length) {
+    const { data: tokens } = await db
+      .from('booking_qr_tokens')
+      .select('booking_id,token,generated_at,pdf_saved')
+      .in('booking_id', bookingIds);
+    (tokens || []).forEach(t => { tokenMap[t.booking_id] = t; });
+  }
+
+  // 5 ── Group by store + date  (one QR card per activation day)
+  const grouped = {};
+  rows.forEach(b => {
+    const key = `${b.store?.id}_${b.shift_date}`;
+    if (!grouped[key]) {
+      grouped[key] = {
+        key,
+        safeKey:    key.replace(/[^a-zA-Z0-9]/g,'_'),
+        storeId:    b.store?.id || '',
+        storeName:  b.store
+          ? (b.store.retailer ? `${b.store.retailer} — ${b.store.branch}` : b.store.name)
+          : '—',
+        date:       b.shift_date,
+        shift:      b.shift_slot || '—',
+        campaign:   b.product
+          ? (b.product.brand ? `${b.product.brand} — ${b.product.name}` : b.product.name)
+          : '—',
+        campaignId: b.product?.id || '',
+        bookings:   [],
+        token:      null,
+        tokenRec:   null,
+      };
+    }
+    grouped[key].bookings.push(b);
+    if (!grouped[key].token && tokenMap[b.id]) {
+      grouped[key].token    = tokenMap[b.id].token;
+      grouped[key].tokenRec = tokenMap[b.id];
+    }
+  });
+  const acts = Object.values(grouped);
+
+  // 6 ── Filter dropdowns
+  const storeOpts = `<option value="all">All Stores</option>` +
+    stores.map(s =>
+      `<option value="${s.id}"${storeF===s.id?' selected':''}>${s.retailer?s.retailer+' — '+s.branch:s.name}</option>`
+    ).join('');
+  const campOpts = `<option value="all">All Campaigns</option>` +
+    campaigns.map(c =>
+      `<option value="${c.id}"${campF===c.id?' selected':''}>${c.brand?c.brand+' — ':''}${c.name}</option>`
+    ).join('');
+
+  // 7 ── Render
+  el.innerHTML = `
   <div class="page-header">
-    <div class="page-header-left"><h1>Store QR Codes</h1><p>Generate and print shift check-in codes per activation</p></div>
+    <div class="page-header-left">
+      <h1>Store QR Codes</h1>
+      <p>One unique QR per store per day — generate, download PDF, stored in database</p>
+    </div>
   </div>
+
   <div class="filter-bar">
-    <select id="qr-store" onchange="renderStoreQR()">
-      <option value="all"${storeF==='all'?' selected':''}>All Stores</option>
-      ${S.stores.map(s=>`<option value="${s.name}"${storeF===s.name?' selected':''}>${s.name}</option>`).join('')}
-    </select>
-    <select id="qr-status" onchange="renderStoreQR()">
+    <select id="qr-store"    onchange="renderStoreQR()">${storeOpts}</select>
+    <select id="qr-campaign" onchange="renderStoreQR()">${campOpts}</select>
+    <select id="qr-status"   onchange="renderStoreQR()">
       <option value="upcoming"${statusF==='upcoming'?' selected':''}>Upcoming</option>
       <option value="past"${statusF==='past'?' selected':''}>Past</option>
       <option value="all"${statusF==='all'?' selected':''}>All</option>
     </select>
-    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} activation${data.length!==1?'s':''}</span>
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">
+      ${acts.length} activation${acts.length!==1?'s':''}
+    </span>
   </div>
 
-  ${data.length === 0 ? `
-  <div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">
-    <div style="font-size:2rem;margin-bottom:.75rem">📲</div>
-    <div style="font-weight:600">No activations found</div>
-    <div style="font-size:.82rem;margin-top:.35rem">Confirmed bookings will appear here</div>
-  </div>` : `
+  ${acts.length === 0
+    ? `<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">
+         <div style="font-size:2.5rem;margin-bottom:.75rem">📲</div>
+         <div style="font-weight:600;margin-bottom:.35rem">No confirmed activations found</div>
+         <div style="font-size:.82rem">Post a job offer and have promoters confirm it — it will appear here ready for QR generation.</div>
+       </div>`
+    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem">
+       ${acts.map(act => {
+         const isPast  = act.date < today;
+         const hasQR   = !!act.token;
+         const pdfDone = act.tokenRec?.pdf_saved || false;
+         const dateStr = new Date(act.date).toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+         const promos  = act.bookings.map(b => b.promoter
+           ? `${b.promoter.first_name} ${b.promoter.last_name}` : '—');
+         const bIds    = act.bookings.map(b=>b.id).join(',');
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem">
-  ${data.map(act => {
-    const isPast    = new Date(act.date) < new Date(new Date().toDateString());
-    const scanCount = act.scans.length;
-    const total     = act.promoters.length;
-    const allIn     = scanCount === total;
-    const dateStr   = new Date(act.date).toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    return `
-    <div class="card" style="display:flex;flex-direction:column;gap:.75rem">
+         return `
+         <div class="card" style="display:flex;flex-direction:column;gap:.75rem;
+              border-top:3px solid ${hasQR?'var(--oz-green)':isPast?'var(--oz-dim)':'var(--oz-accent)'}">
 
-      <!-- Header -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div style="font-weight:700;font-size:.9rem">${act.store}</div>
-          <div style="font-size:.78rem;color:var(--oz-muted);margin-top:.15rem">📅 ${dateStr} &nbsp;·&nbsp; 🕐 ${act.shift}</div>
-          <div style="font-size:.78rem;color:var(--oz-muted);margin-top:.1rem">🛍 ${act.product}</div>
-        </div>
-        <span class="badge ${isPast?(allIn?'badge-green':'badge-red'):'badge-cyan'}" style="flex-shrink:0">
-          ${isPast?(allIn?'Complete':'Incomplete'):'Upcoming'}
-        </span>
-      </div>
+           <!-- Header -->
+           <div style="display:flex;justify-content:space-between;align-items:flex-start">
+             <div>
+               <div style="font-weight:700;font-size:.9rem">${act.storeName}</div>
+               <div style="font-size:.77rem;color:var(--oz-muted);margin-top:2px">
+                 📅 ${dateStr} &nbsp;·&nbsp; 🕐 ${act.shift}
+               </div>
+               <div style="font-size:.77rem;color:var(--oz-accent);margin-top:2px;font-weight:500">
+                 🛍 ${act.campaign}
+               </div>
+             </div>
+             <span class="badge ${hasQR?'badge-green':isPast?'badge-gray':'badge-amber'}">
+               ${hasQR ? '✓ QR Ready' : isPast ? 'No QR' : 'Needs QR'}
+             </span>
+           </div>
 
-      <!-- Promoters assigned -->
-      <div style="font-size:.75rem;color:var(--oz-dim);margin-bottom:.1rem">Assigned promoters</div>
-      <div style="display:flex;flex-direction:column;gap:.3rem">
-        ${act.promoters.map(p => {
-          const scan = act.scans.find(s => s.promoter === p);
-          return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:.8rem">
-            <span>${p}</span>
-            ${scan
-              ? `<span class="badge badge-green">✓ ${scan.time}</span>`
-              : isPast
-                ? `<span class="badge badge-red">Absent</span>`
-                : `<span class="badge badge-gray">Pending</span>`}
-          </div>`;
-        }).join('')}
-      </div>
+           <!-- Promoters -->
+           <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--oz-dim);font-weight:600;margin-bottom:-.25rem">
+             Assigned Promoters
+           </div>
+           ${promos.map(p=>`
+             <div style="font-size:.81rem;padding:4px 0;border-bottom:1px solid var(--oz-border);
+                  color:var(--oz-muted)">👤 ${p}</div>
+           `).join('')}
 
-      <!-- QR Code canvas -->
-      <div style="display:flex;justify-content:center;background:#fff;border-radius:var(--r);padding:.75rem" id="qr-wrap-${act.id}">
-        <canvas id="qr-${act.id}" style="display:block"></canvas>
-      </div>
-      <div style="font-size:.68rem;color:var(--oz-dim);text-align:center;font-family:monospace;letter-spacing:.03em">${act.qrToken}</div>
+           <!-- QR display area -->
+           <div id="qr-box-${act.safeKey}"
+                style="display:flex;flex-direction:column;align-items:center;
+                       background:#fff;border-radius:var(--r);padding:1rem;min-height:180px;
+                       justify-content:center">
+             ${hasQR
+               ? `<div id="qr-render-${act.safeKey}"></div>
+                  <div style="margin-top:8px;font-size:.62rem;color:#555;
+                       font-family:monospace;word-break:break-all;text-align:center;
+                       max-width:160px">${act.token}</div>`
+               : `<div style="text-align:center;color:#aaa">
+                    <div style="font-size:2rem;margin-bottom:.35rem">📲</div>
+                    <div style="font-size:.78rem">No QR generated yet</div>
+                  </div>`}
+           </div>
 
-      <!-- Actions -->
-      <div style="display:flex;gap:.5rem;margin-top:auto">
-        <button class="btn btn-sm btn-outline" style="flex:1" onclick="downloadQR('${act.id}','${act.store} ${act.date}')">⬇ Download</button>
-        <button class="btn btn-sm btn-accent"  style="flex:1" onclick="printQR('${act.id}','${act.store}','${dateStr}','${act.shift}','${act.product}')">🖨 Print</button>
-      </div>
-    </div>`;
-  }).join('')}
-  </div>`}
-  `;
+           <!-- Token meta -->
+           ${hasQR ? `
+           <div style="font-size:.7rem;color:var(--oz-dim);text-align:center">
+             Generated: ${act.tokenRec?.generated_at
+               ? new Date(act.tokenRec.generated_at).toLocaleString('en-ZA')
+               : '—'}
+             ${pdfDone ? ' &nbsp;·&nbsp; <span style="color:var(--oz-green)">PDF saved ✓</span>' : ''}
+           </div>` : ''}
 
-  // Render real QR codes after HTML is in DOM
-  // Uses qrcode.js loaded in the <head> from CDN
-  if (typeof QRCode !== 'undefined') {
-    data.forEach(act => {
-      const canvas = document.getElementById(`qr-${act.id}`);
-      if (!canvas) return;
-      QRCode.toCanvas(canvas, act.qrToken, {
-        width: 160,
-        margin: 1,
-        color: { dark: '#000000', light: '#ffffff' }
-      }, err => { if (err) console.warn('QR error:', err); });
+           <!-- Action buttons -->
+           <div style="display:flex;gap:.5rem;margin-top:auto">
+             ${!hasQR ? `
+               <button class="btn btn-accent" style="width:100%;font-weight:700"
+                 onclick="generateAndShowQR('${act.safeKey}','${act.storeId}',
+                   '${act.campaignId}','${act.date}','${bIds}')">
+                 ✨ Generate QR Code
+               </button>`
+             : `
+               <button class="btn btn-sm btn-accent" style="flex:1"
+                 onclick="downloadQRpdf('${act.safeKey}','${act.storeName}',
+                   '${dateStr}','${act.shift}','${act.campaign}','${act.token}','${bIds}')">
+                 ⬇ Download PDF
+               </button>
+               <button class="btn btn-sm btn-ghost" style="flex:1"
+                 onclick="regenQR('${act.safeKey}','${act.storeId}',
+                   '${act.campaignId}','${act.date}','${bIds}')">
+                 🔄 Regenerate
+               </button>`}
+           </div>
+         </div>`;
+       }).join('')}
+       </div>`
+  }`;
+
+  // 8 ── Draw QR images for cards that already have a token
+  acts.forEach(act => {
+    if (!act.token) return;
+    const target = document.getElementById(`qr-render-${act.safeKey}`);
+    if (!target) return;
+    target.innerHTML = '';
+    new QRCode(target, {
+      text:         act.token,
+      width:        160,
+      height:       160,
+      colorDark:    '#000000',
+      colorLight:   '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  });
+}
+
+// ── Generate token → save to DB → render QR inline ───────────
+async function generateAndShowQR(safeKey, storeId, campaignId, date, bIdsCsv) {
+  const db  = window.supabaseClient;
+  const ids = bIdsCsv.split(',').filter(Boolean);
+
+  // One QR per store per day — block duplicates
+  const { data: existing } = await db
+    .from('booking_qr_tokens')
+    .select('id').in('booking_id', ids).limit(1);
+  if (existing && existing.length) {
+    OZ.toast('⚠️ A QR already exists for this activation. Use Regenerate.'); return;
+  }
+
+  // Build unique token
+  const rand  = Math.random().toString(36).slice(2,8).toUpperCase();
+  const token = `OZ-${(storeId||'STR').slice(-4).toUpperCase()}-${(campaignId||'CAM').slice(-4).toUpperCase()}-${date.replace(/-/g,'')}-${rand}`;
+
+  const { error } = await db.from('booking_qr_tokens').insert(
+    ids.map(id => ({ booking_id:id, token, generated_at:new Date().toISOString(), pdf_saved:false }))
+  );
+  if (error) { OZ.toast('❌ ' + error.message); return; }
+
+  // Swap placeholder for live QR without full page reload
+  const box = document.getElementById(`qr-box-${safeKey}`);
+  if (box) {
+    box.innerHTML = `
+      <div id="qr-render-${safeKey}"></div>
+      <div style="margin-top:8px;font-size:.62rem;color:#555;font-family:monospace;
+           word-break:break-all;text-align:center;max-width:160px">${token}</div>`;
+    new QRCode(document.getElementById(`qr-render-${safeKey}`), {
+      text:         token,
+      width:        160,
+      height:       160,
+      colorDark:    '#000000',
+      colorLight:   '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H,
     });
   }
+
+  // Swap button row
+  const card = box?.closest('.card');
+  if (card) {
+    const btnRow = card.querySelector('[style*="margin-top:auto"]');
+    if (btnRow) {
+      btnRow.innerHTML = `
+        <button class="btn btn-sm btn-accent" style="flex:1"
+          onclick="downloadQRpdf('${safeKey}','','','','','${token}','${bIdsCsv}')">
+          ⬇ Download PDF
+        </button>
+        <button class="btn btn-sm btn-ghost" style="flex:1"
+          onclick="regenQR('${safeKey}','${storeId}','${campaignId}','${date}','${bIdsCsv}')">
+          🔄 Regenerate
+        </button>`;
+      // Update badge
+      const badge = card.querySelector('.badge');
+      if (badge) { badge.textContent = '✓ QR Ready'; badge.className = 'badge badge-green'; }
+      card.style.borderTopColor = 'var(--oz-green)';
+    }
+  }
+
+  OZ.toast('✅ QR generated and saved!');
 }
 
-function downloadQR(actId, label) {
-  const canvas = document.getElementById(`qr-${actId}`);
-  if (!canvas) return;
-  const link = document.createElement('a');
-  link.download = `OzoneQR-${label.replace(/\s/g,'-')}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  OZ.toast('QR downloaded');
+// ── Regenerate — delete old token then create fresh ───────────
+async function regenQR(safeKey, storeId, campaignId, date, bIdsCsv) {
+  if (!confirm('Regenerate QR? The old token will no longer work for check-in.')) return;
+  const db  = window.supabaseClient;
+  const ids = bIdsCsv.split(',').filter(Boolean);
+  await db.from('booking_qr_tokens').delete().in('booking_id', ids);
+  await generateAndShowQR(safeKey, storeId, campaignId, date, bIdsCsv);
 }
 
+// ── Download styled PDF via jsPDF ─────────────────────────────
+async function downloadQRpdf(safeKey, storeName, dateStr, shift, campaign, token, bIdsCsv) {
+  if (typeof window.jspdf === 'undefined') {
+    OZ.toast('❌ jsPDF not loaded — check your <head> scripts'); return;
+  }
+
+  // Get the QR image from the rendered QRCode div
+  const renderDiv = document.getElementById(`qr-render-${safeKey}`);
+  if (!renderDiv) { OZ.toast('QR not rendered yet — generate it first'); return; }
+
+  const imgEl = renderDiv.querySelector('img') || renderDiv.querySelector('canvas');
+  if (!imgEl) { OZ.toast('QR image not ready'); return; }
+
+  // Convert to dataURL regardless of img vs canvas
+  let imgData;
+  if (imgEl.tagName === 'CANVAS') {
+    imgData = imgEl.toDataURL('image/png');
+  } else {
+    const c = document.createElement('canvas');
+    c.width = 160; c.height = 160;
+    c.getContext('2d').drawImage(imgEl, 0, 0, 160, 160);
+    imgData = c.toDataURL('image/png');
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a5' });
+
+  // Dark background
+  doc.setFillColor(8, 13, 26);
+  doc.rect(0, 0, 148, 210, 'F');
+
+  // Brand header
+  doc.setTextColor(0, 212, 255);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('⬡ OZONE PROMOTIONS', 74, 18, { align:'center' });
+
+  // Divider
+  doc.setDrawColor(0, 212, 255); doc.setLineWidth(.4);
+  doc.line(20, 22, 128, 22);
+
+  // Store name
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text(storeName || 'Activation QR', 74, 32, { align:'center' });
+
+  // Date / shift / campaign
+  doc.setTextColor(136, 153, 187);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  if (dateStr) doc.text(`📅 ${dateStr}${shift?' · '+shift:''}`, 74, 40, { align:'center' });
+  if (campaign) doc.text(`🛍 ${campaign}`, 74, 47, { align:'center' });
+
+  // QR image centred
+  doc.addImage(imgData, 'PNG', 34, 55, 80, 80);
+
+  // Token
+  doc.setTextColor(80, 100, 130);
+  doc.setFontSize(6.5);
+  doc.text(token, 74, 141, { align:'center' });
+
+  // Instruction
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Scan to record your check-in', 74, 151, { align:'center' });
+
+  doc.setTextColor(100, 120, 150);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('Valid for this activation only · Do not share outside the team', 74, 159, { align:'center' });
+
+  // Footer bar
+  doc.setFillColor(0, 212, 255);
+  doc.rect(0, 200, 148, 10, 'F');
+  doc.setTextColor(8, 13, 26);
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('OZONE PROMOTIONS MANAGEMENT SYSTEM', 74, 206, { align:'center' });
+
+  const fname = `OzoneQR-${(storeName||'QR').replace(/[^a-z0-9]/gi,'-')}-${(dateStr||date).replace(/[\s,]/g,'')}.pdf`;
+  doc.save(fname);
+
+  // Mark pdf_saved in DB
+  const db  = window.supabaseClient;
+  const ids = bIdsCsv.split(',').filter(Boolean);
+  if (ids.length) await db.from('booking_qr_tokens').update({ pdf_saved:true }).in('booking_id', ids);
+
+  OZ.toast('📄 PDF downloaded!');
+}
 
 // ── INVOICES ──────────────────────────────────────────────────
 function renderInvoices() {
@@ -1632,25 +2146,30 @@ async function renderProducts() {
     </div>
   </div>`).join('')}
   ${!products.length ? `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--oz-dim)"><div style="font-size:2rem;margin-bottom:.75rem">🍾</div><div style="font-weight:600">No campaigns yet</div><div style="font-size:.84rem;margin-top:.4rem">Add your first campaign to start posting job offers.</div></div>` : ''}
-  </div>
+</div>`;
 
-  <!-- Delete confirmation modal -->
-  <div class="modal-overlay" id="modal-delete-campaign" onclick="if(event.target===this)closeDeleteCampaign()">
-    <div class="modal" style="max-width:420px">
-      <div class="modal-header"><div class="modal-title" style="color:var(--oz-red)">🗑 Delete Campaign</div></div>
-      <div class="modal-body">
+  // Inject delete modal into DOM statically (outside page div so it survives re-renders)
+  if (!document.getElementById('modal-delete-campaign')) {
+    const m = document.createElement('div');
+    m.innerHTML = `<div class="modal-overlay" id="modal-delete-campaign">
+      <div class="modal" style="max-width:420px">
+        <h2 style="color:var(--oz-red)">🗑 Delete Campaign</h2>
         <div style="text-align:center;padding:1rem 0">
           <div style="font-size:2.5rem;margin-bottom:.75rem">⚠️</div>
           <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">Delete "<span id="delete-campaign-name"></span>"?</div>
-         <div style="font-size:.84rem;color:var(--oz-muted);line-height:1.6">If this campaign has no bookings attached, it will be permanently deleted.<br><br>If it has existing bookings, it will be marked as <strong style="color:var(--oz-accent)">discontinued</strong> instead — preserving your booking history.</div>
+          <div style="font-size:.84rem;color:var(--oz-muted);line-height:1.6">If this campaign has no bookings attached, it will be permanently deleted.<br><br>If it has existing bookings, it will be marked as <strong style="color:var(--oz-accent)">discontinued</strong> instead.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeDeleteCampaign()">Cancel</button>
+          <button class="btn btn-danger" onclick="confirmDeleteCampaign()">Yes, Delete</button>
         </div>
       </div>
-      <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeDeleteCampaign()">Cancel</button>
-        <button class="btn btn-danger" onclick="confirmDeleteCampaign()">Yes, Delete Campaign</button>
-      </div>
-    </div>
-  </div>`;
+    </div>`;
+    document.body.appendChild(m.firstElementChild);
+    document.getElementById('modal-delete-campaign').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeDeleteCampaign();
+    });
+  }
 }
 
 function openDeleteCampaign(id, name) {
