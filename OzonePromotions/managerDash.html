@@ -304,6 +304,7 @@
 <script src="javascript/auth-session.js"></script>
 <script src="javascript/index.js"></script>
 <script src="javascript/bookings-modals.js"></script>
+<script src="javascript/invoices.js"></script>
 
 <script>
 // ── SESSION CHECK ─────────────────────────────────────────────
@@ -1406,149 +1407,773 @@ function _refreshAttStats() {
 
 
 // ── STOCK ─────────────────────────────────────────────────────
-function renderStock() {
-  document.getElementById('page-stock').innerHTML = `
-  
+async function renderStock() {
+  const db    = window.supabaseClient;
+  const today = new Date().toISOString().split('T')[0];
+  const el    = document.getElementById('page-stock');
+  const tab   = window.stock_tab || 'log';
+  const storeF= document.getElementById('stk-store-filter')?.value || 'all';
+  const campF = document.getElementById('stk-camp-filter')?.value  || 'all';
+
+  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)">
+    <div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading stock…</div>`;
+
+  // 1 ── Load stores & campaigns for dropdowns
+  const [{ data: storesData }, { data: campData }] = await Promise.all([
+    db.from('stores').select('id,name,retailer,branch').eq('status','active').order('name'),
+    db.from('products').select('id,name,brand').eq('status','active').order('name'),
+  ]);
+  const stores   = storesData || [];
+  const campaigns= campData   || [];
+
+  // 2 ── Load confirmed bookings (for linking delivery to activation day)
+  const { data: bookingsData } = await db
+    .from('bookings')
+    .select('id,shift_date,shift_slot,store:store_id(id,name,retailer,branch),product:product_id(id,name,brand)')
+    .eq('status','confirmed')
+    .order('shift_date', { ascending: false })
+    .limit(200);
+  const bookings = bookingsData || [];
+
+  // 3 ── Load stock_deliveries history
+  let dQ = db.from('stock_deliveries')
+    .select(`
+      id, delivery_date, quantity_delivered, quantity_used, quantity_returned,
+      notes, created_at,
+      store:store_id(id,name,retailer,branch),
+      product:product_id(id,name,brand),
+      booking:booking_id(id,shift_date,shift_slot)
+    `)
+    .order('delivery_date', { ascending: false })
+    .limit(200);
+  if (storeF !== 'all') dQ = dQ.eq('store_id', storeF);
+  if (campF  !== 'all') dQ = dQ.eq('product_id', campF);
+  const { data: deliveries } = await dQ;
+  const history = deliveries || [];
+
+  // ── Dropdown helpers ─────────────────────────────────────────
+  const storeOpts = `<option value="all">All Stores</option>` +
+    stores.map(s => `<option value="${s.id}"${storeF===s.id?' selected':''}>
+      ${s.retailer ? s.retailer+' — '+s.branch : s.name}</option>`).join('');
+  const campOpts = `<option value="all">All Campaigns</option>` +
+    campaigns.map(c => `<option value="${c.id}"${campF===c.id?' selected':''}>
+      ${c.brand ? c.brand+' — ' : ''}${c.name}</option>`).join('');
+
+  // Bookings grouped as options for the log form (store → activation date)
+  const bkOpts = bookings.map(b => {
+    const sn = b.store ? (b.store.retailer ? `${b.store.retailer} — ${b.store.branch}` : b.store.name) : '—';
+    const pn = b.product ? (b.product.brand ? `${b.product.brand} — ${b.product.name}` : b.product.name) : '—';
+    return `<option value="${b.id}"
+      data-store="${b.store?.id||''}"
+      data-storename="${sn}"
+      data-product="${b.product?.id||''}"
+      data-productname="${pn}"
+      data-date="${b.shift_date}">
+      📅 ${b.shift_date} · ${sn} · ${pn}
+    </option>`;
+  }).join('');
+
+  // ── Summary stats ─────────────────────────────────────────────
+  const totalDelivered = history.reduce((s,d) => s + (d.quantity_delivered||0), 0);
+  const totalUsed      = history.reduce((s,d) => s + (d.quantity_used||0),      0);
+  const totalReturned  = history.reduce((s,d) => s + (d.quantity_returned||0),  0);
+  const totalOnHand    = totalDelivered - totalUsed - totalReturned;
+
+  el.innerHTML = `
   <div class="page-header">
     <div class="page-header-left">
-      <h1>Stock Delivery Checklist</h1>
-      <p>Record products delivered to stores</p>
+      <h1>Stock Management</h1>
+      <p>Log stock delivered per activation — track usage and returns per store</p>
     </div>
   </div>
 
-  <div class="card">
+  <!-- Summary strip -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.2rem">
+    <div class="stat-card" style="--accent-color:var(--oz-accent);padding:.9rem 1.1rem">
+      <div class="stat-label">Total Delivered</div>
+      <div class="stat-value" style="font-size:1.6rem">${totalDelivered.toLocaleString()}</div>
+      <div class="stat-sub">units across all deliveries</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--oz-green);padding:.9rem 1.1rem">
+      <div class="stat-label">Used / Sampled</div>
+      <div class="stat-value" style="font-size:1.6rem;color:var(--oz-green)">${totalUsed.toLocaleString()}</div>
+      <div class="stat-sub">units consumed on activation</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent3);padding:.9rem 1.1rem">
+      <div class="stat-label">Returned</div>
+      <div class="stat-value" style="font-size:1.6rem;color:var(--oz-accent3)">${totalReturned.toLocaleString()}</div>
+      <div class="stat-sub">units brought back</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--oz-accent2);padding:.9rem 1.1rem">
+      <div class="stat-label">Est. On Hand</div>
+      <div class="stat-value" style="font-size:1.6rem;color:var(--oz-accent2)">${Math.max(0,totalOnHand).toLocaleString()}</div>
+      <div class="stat-sub">delivered − used − returned</div>
+    </div>
+  </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label>Brand</label>
-        <input type="text" placeholder="e.g. Smirnoff Vodka">
-      </div>
+  <!-- Tabs -->
+  <div style="display:flex;gap:0;background:var(--oz-surface2);border:1px solid var(--oz-border);
+       border-radius:var(--r);overflow:hidden;margin-bottom:1.2rem;width:fit-content">
+    ${[['log','📦','Log Delivery'],['history','🗂','History'],['bystore','🏪','By Store']].map(([t,icon,label]) => `
+    <button onclick="window.stock_tab='${t}';renderStock()"
+      style="display:flex;align-items:center;gap:6px;padding:8px 18px;border:none;cursor:pointer;
+             font-family:var(--font-b);font-size:.82rem;white-space:nowrap;transition:all .15s;
+             background:${tab===t?'rgba(255,255,255,.06)':'transparent'};
+             color:${tab===t?'var(--oz-accent)':'var(--oz-dim)'};
+             border-bottom:${tab===t?'2px solid var(--oz-accent)':'2px solid transparent'}">
+      ${icon} ${label}
+    </button>`).join('')}
+  </div>
 
-      <div class="form-group">
-        <label>Product Type</label>
-        <input type="text" placeholder="e.g. 750ml Bottle">
-      </div>
+  <!-- Filters (history + bystore tabs) -->
+  ${tab !== 'log' ? `
+  <div class="filter-bar" style="margin-bottom:1rem">
+    <select id="stk-store-filter" onchange="renderStock()">${storeOpts}</select>
+    <select id="stk-camp-filter"  onchange="renderStock()">${campOpts}</select>
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">
+      ${history.length} record${history.length!==1?'s':''}
+    </span>
+  </div>` : ''}
+
+  <!-- ── TAB: LOG DELIVERY ─────────────────────────────────── -->
+  ${tab === 'log' ? `
+  <div class="card" style="max-width:680px">
+    <div style="font-family:var(--font-h);font-size:.95rem;font-weight:700;margin-bottom:1rem">
+      📦 Record New Stock Delivery
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label>Date Delivered</label>
-        <input type="date">
-      </div>
-
-      <div class="form-group">
-        <label>Quantity Delivered</label>
-        <input type="number" placeholder="Units">
-      </div>
-    </div>
-
+    <!-- Link to activation -->
     <div class="form-group">
-      <label>Store / Location</label>
-      <input type="text" placeholder="e.g. Shoprite Gateway Mall">
+      <label>Link to Activation / Job <span style="color:var(--oz-accent);font-size:.7rem">(ties delivery to the booking date)</span></label>
+      <select id="stk-booking" onchange="onStockBookingChange()">
+        <option value="">— Select activation or leave blank —</option>
+        ${bkOpts}
+      </select>
+    </div>
+
+    <!-- Auto-filled from booking (or manual) -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Store <span style="color:var(--oz-red)">*</span></label>
+        <select id="stk-store">
+          <option value="">Select store…</option>
+          ${stores.map(s => `<option value="${s.id}">
+            ${s.retailer ? s.retailer+' — '+s.branch : s.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Campaign / Product <span style="color:var(--oz-red)">*</span></label>
+        <select id="stk-product">
+          <option value="">Select campaign…</option>
+          ${campaigns.map(c => `<option value="${c.id}">
+            ${c.brand ? c.brand+' — ' : ''}${c.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Delivery Date <span style="color:var(--oz-red)">*</span></label>
+        <input type="date" id="stk-date" value="${today}">
+        <div id="stk-date-hint" style="font-size:.72rem;color:var(--oz-dim);margin-top:3px"></div>
+      </div>
+      <div class="form-group">
+        <label>Quantity Delivered <span style="color:var(--oz-red)">*</span></label>
+        <input type="number" id="stk-qty" placeholder="e.g. 48" min="1" oninput="calcStockBalance()">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Quantity Used / Sampled</label>
+        <input type="number" id="stk-used" placeholder="0" min="0" oninput="calcStockBalance()">
+      </div>
+      <div class="form-group">
+        <label>Quantity Returned</label>
+        <input type="number" id="stk-returned" placeholder="0" min="0" oninput="calcStockBalance()">
+      </div>
+    </div>
+
+    <!-- Live balance preview -->
+    <div id="stk-balance-box" style="display:none;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);
+         border-radius:var(--r);padding:10px 14px;margin-bottom:.9rem;font-size:.83rem">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <span>📦 Delivered: <strong id="stk-b-del" style="color:var(--oz-text)">0</strong></span>
+        <span>✅ Used: <strong id="stk-b-used" style="color:var(--oz-green)">0</strong></span>
+        <span>↩ Returned: <strong id="stk-b-ret" style="color:var(--oz-accent3)">0</strong></span>
+        <span>🏷 On hand: <strong id="stk-b-hand" style="color:var(--oz-accent)">0</strong></span>
+      </div>
     </div>
 
     <div class="form-group">
       <label>Notes</label>
-      <textarea placeholder="Additional information"></textarea>
+      <textarea id="stk-notes" placeholder="e.g. Delivered before opening. 2 bottles damaged on arrival."></textarea>
     </div>
 
-    <button class="btn btn-accent">
-      Save Checklist
+    <button class="btn btn-accent" style="width:100%;font-size:.9rem;padding:12px"
+      onclick="saveStockDelivery()">
+      💾 Save Delivery Record
     </button>
+  </div>` : ''}
 
-  </div>
-
-  <div style="height:20px"></div>
-
+  <!-- ── TAB: HISTORY ──────────────────────────────────────── -->
+  ${tab === 'history' ? `
   <div class="card">
-
-    <div class="card-title">
-      Recent Deliveries
-    </div>
-
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr>
-            <th>Brand</th>
-            <th>Product</th>
-            <th>Date</th>
-            <th>Quantity</th>
-            <th>Store</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-
+        <thead><tr>
+          <th>Date</th><th>Store</th><th>Campaign</th>
+          <th>Delivered</th><th>Used</th><th>Returned</th><th>On Hand</th>
+          <th>Activation</th><th>Notes</th><th></th>
+        </tr></thead>
         <tbody>
-
-          <tr>
-            <td>Smirnoff</td>
-            <td>750ml Vodka</td>
-            <td>2026-06-11</td>
-            <td>120</td>
-            <td>Shoprite Gateway</td>
-            <td><span class="badge badge-green">Delivered</span></td>
-          </tr>
-
+        ${history.length ? history.map(d => {
+          const sn = d.store
+            ? (d.store.retailer ? `${d.store.retailer} — ${d.store.branch}` : d.store.name) : '—';
+          const pn = d.product
+            ? (d.product.brand ? `${d.product.brand} — ${d.product.name}` : d.product.name) : '—';
+          const onHand = (d.quantity_delivered||0) - (d.quantity_used||0) - (d.quantity_returned||0);
+          const onHandCol = onHand <= 0 ? 'var(--oz-dim)' : onHand < 5 ? 'var(--oz-red)' : 'var(--oz-green)';
+          return `<tr>
+            <td style="white-space:nowrap;font-weight:600">${d.delivery_date}</td>
+            <td style="font-size:.8rem">${sn}</td>
+            <td style="font-size:.78rem;color:var(--oz-accent)">${pn}</td>
+            <td><span class="badge badge-cyan">${d.quantity_delivered||0}</span></td>
+            <td style="color:var(--oz-green);font-weight:600">${d.quantity_used||0}</td>
+            <td style="color:var(--oz-accent3)">${d.quantity_returned||0}</td>
+            <td style="font-weight:700;color:${onHandCol}">${Math.max(0,onHand)}</td>
+            <td style="font-size:.75rem;color:var(--oz-muted)">
+              ${d.booking ? `📅 ${d.booking.shift_date}` : '—'}
+            </td>
+            <td style="font-size:.75rem;color:var(--oz-dim);max-width:140px">${d.notes||'—'}</td>
+            <td>
+              <button class="btn btn-sm btn-danger"
+                onclick="deleteDelivery('${d.id}')">🗑</button>
+            </td>
+          </tr>`;
+        }).join('') : `
+        <tr><td colspan="10" style="text-align:center;padding:2.5rem;color:var(--oz-dim)">
+          No delivery records yet. Use the Log tab to add one.
+        </td></tr>`}
         </tbody>
       </table>
     </div>
+  </div>` : ''}
 
-  </div>
+  <!-- ── TAB: BY STORE ─────────────────────────────────────── -->
+  ${tab === 'bystore' ? (() => {
+    // Group history by store
+    const byStore = {};
+    history.forEach(d => {
+      const sid = d.store?.id || 'unknown';
+      const sn  = d.store
+        ? (d.store.retailer ? `${d.store.retailer} — ${d.store.branch}` : d.store.name) : 'Unknown';
+      if (!byStore[sid]) byStore[sid] = { name:sn, deliveries:[] };
+      byStore[sid].deliveries.push(d);
+    });
+
+    if (!Object.keys(byStore).length) return `
+      <div class="card" style="text-align:center;padding:2.5rem;color:var(--oz-dim)">
+        <div style="font-size:2rem;margin-bottom:.5rem">🏪</div>
+        No records yet — log a delivery first.
+      </div>`;
+
+    return Object.values(byStore).map(sg => {
+      const del  = sg.deliveries.reduce((s,d) => s+(d.quantity_delivered||0), 0);
+      const used = sg.deliveries.reduce((s,d) => s+(d.quantity_used||0),      0);
+      const ret  = sg.deliveries.reduce((s,d) => s+(d.quantity_returned||0),  0);
+      const hand = Math.max(0, del-used-ret);
+      const pct  = del > 0 ? Math.round((used/del)*100) : 0;
+      const barCol = pct >= 80 ? 'var(--oz-green)' : pct >= 40 ? 'var(--oz-accent3)' : 'var(--oz-red)';
+
+      return `
+      <div class="card" style="margin-bottom:.9rem">
+        <!-- Store header -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;
+             flex-wrap:wrap;gap:.5rem;margin-bottom:.85rem">
+          <div>
+            <div style="font-family:var(--font-h);font-size:.95rem;font-weight:700">${sg.name}</div>
+            <div style="font-size:.75rem;color:var(--oz-muted);margin-top:2px">
+              ${sg.deliveries.length} delivery record${sg.deliveries.length!==1?'s':''}
+            </div>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <span class="badge badge-cyan">📦 ${del} delivered</span>
+            <span class="badge badge-green">✅ ${used} used</span>
+            <span class="badge badge-amber">↩ ${ret} returned</span>
+            <span class="badge ${hand>0?'badge-green':'badge-gray'}">🏷 ${hand} on hand</span>
+          </div>
+        </div>
+
+        <!-- Usage bar -->
+        <div style="margin-bottom:.85rem">
+          <div style="display:flex;justify-content:space-between;
+               font-size:.72rem;color:var(--oz-muted);margin-bottom:3px">
+            <span>Usage rate</span><span style="font-weight:700;color:${barCol}">${pct}%</span>
+          </div>
+          <div style="height:6px;background:var(--oz-surface2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${barCol};border-radius:3px;transition:width .4s"></div>
+          </div>
+        </div>
+
+        <!-- Per-day breakdown -->
+        <div style="display:flex;flex-direction:column;gap:5px">
+        ${sg.deliveries.map(d => {
+          const pn   = d.product ? (d.product.brand ? `${d.product.brand} — ${d.product.name}` : d.product.name) : '—';
+          const hand2= Math.max(0,(d.quantity_delivered||0)-(d.quantity_used||0)-(d.quantity_returned||0));
+          return `
+          <div style="display:flex;align-items:center;gap:.75rem;padding:7px 10px;
+               background:var(--oz-surface2);border-radius:var(--r);font-size:.8rem;flex-wrap:wrap">
+            <span style="font-weight:600;min-width:90px;color:var(--oz-text)">${d.delivery_date}</span>
+            <span style="color:var(--oz-accent);flex:1;min-width:120px">${pn}</span>
+            <span style="color:var(--oz-muted)">📦 ${d.quantity_delivered||0}</span>
+            <span style="color:var(--oz-green)">✅ ${d.quantity_used||0}</span>
+            <span style="color:var(--oz-accent3)">↩ ${d.quantity_returned||0}</span>
+            <span style="font-weight:700;color:${hand2>0?'var(--oz-accent)':'var(--oz-dim)'}">🏷 ${hand2}</span>
+            ${d.booking ? `<span class="badge badge-gray" style="font-size:.65rem">📅 ${d.booking.shift_date}</span>` : ''}
+          </div>`;
+        }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  })() : ''}
   `;
 }
 
-// ── REPORTS ───────────────────────────────────────────────────
-function renderReports() {
-  const period = window.period_reports || 'month';
-  const search = document.getElementById('rp-search')?.value || '';
-  const promoterF = document.getElementById('rp-promoter')?.value || 'all';
-  let data = OZ.filterByPeriod(window.REPORTS, 'date', period);
-  if (search) data = data.filter(r=>r.promoter.toLowerCase().includes(search.toLowerCase())||r.store.toLowerCase().includes(search.toLowerCase()));
-  if (promoterF !== 'all') data = data.filter(r=>r.promoter===promoterF);
+// ── Auto-fill store & product when booking is selected ────────
+function onStockBookingChange() {
+  const sel = document.getElementById('stk-booking');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
 
-  document.getElementById('page-reports').innerHTML = `
-  <div class="page-header"><div class="page-header-left"><h1>Feedback Reports</h1><p>Shift reports and performance insights</p></div></div>
-  <div class="filter-bar">
-    <input type="text" id="rp-search" placeholder="🔍 Search…" value="${search}" oninput="renderReports()">
-    <select id="rp-promoter" onchange="renderReports()">
-      <option value="all"${promoterF==='all'?' selected':''}>All Promoters</option>
-      ${window.PROMOTERS.map(p=>`<option${promoterF===p.name?' selected':''}>${p.name}</option>`).join('')}
-    </select>
-    ${OZ.periodTabsHtml('reports','renderReports()')}
-    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${data.length} report${data.length!==1?'s':''}</span>
-  </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>Promoter</th><th>Store</th><th>Date</th><th>Rating</th><th>Customer Feedback</th><th>Sales</th><th>Issues</th></tr></thead><tbody>
-  ${data.length ? data.map(r=>`<tr><td>${r.promoter}</td><td>${r.store}</td><td>${r.date}</td>
-    <td><span class="badge ${r.rating==='Excellent'?'badge-green':r.rating==='Good'?'badge-cyan':'badge-amber'}">${r.rating}</span></td>
-    <td style="font-size:.78rem;max-width:170px;color:var(--oz-muted)">${r.customers}</td>
-    <td style="font-size:.78rem;color:var(--oz-muted)">${r.sales}</td>
-    <td style="font-size:.78rem;color:${r.issues==='None'?'var(--oz-dim)':'var(--oz-orange)'}">${r.issues}</td></tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--oz-dim);padding:2rem">No reports for this period</td></tr>`}
-  </tbody></table></div></div>`;
+  const storeEl   = document.getElementById('stk-store');
+  const productEl = document.getElementById('stk-product');
+  const dateEl    = document.getElementById('stk-date');
+  const hintEl    = document.getElementById('stk-date-hint');
+
+  // Set store
+  if (opt.dataset.store) storeEl.value = opt.dataset.store;
+  // Set product
+  if (opt.dataset.product) productEl.value = opt.dataset.product;
+  // Set date to activation date
+  if (opt.dataset.date) {
+    dateEl.value = opt.dataset.date;
+    if (hintEl) hintEl.textContent = `📅 Linked to activation on ${opt.dataset.date}`;
+  }
+  calcStockBalance();
 }
 
-// ── PHOTOS ────────────────────────────────────────────────────
-function renderPhotos() {
-  const S = window.SETTINGS;
+// ── Live balance calculator ────────────────────────────────────
+function calcStockBalance() {
+  const del  = parseInt(document.getElementById('stk-qty')?.value)      || 0;
+  const used = parseInt(document.getElementById('stk-used')?.value)     || 0;
+  const ret  = parseInt(document.getElementById('stk-returned')?.value) || 0;
+  const hand = Math.max(0, del - used - ret);
+  const box  = document.getElementById('stk-balance-box');
+  if (!box) return;
+  box.style.display = del > 0 ? 'block' : 'none';
+  document.getElementById('stk-b-del').textContent  = del;
+  document.getElementById('stk-b-used').textContent = used;
+  document.getElementById('stk-b-ret').textContent  = ret;
+  document.getElementById('stk-b-hand').textContent = hand;
+}
+
+// ── Save delivery to DB ───────────────────────────────────────
+async function saveStockDelivery() {
+  const db        = window.supabaseClient;
+  const storeId   = document.getElementById('stk-store').value;
+  const productId = document.getElementById('stk-product').value;
+  const date      = document.getElementById('stk-date').value;
+  const qty       = parseInt(document.getElementById('stk-qty').value)      || 0;
+  const used      = parseInt(document.getElementById('stk-used').value)     || 0;
+  const returned  = parseInt(document.getElementById('stk-returned').value) || 0;
+  const notes     = document.getElementById('stk-notes').value.trim();
+  const bookingId = document.getElementById('stk-booking').value || null;
+
+  if (!storeId)   { OZ.toast('Please select a store');    return; }
+  if (!productId) { OZ.toast('Please select a campaign'); return; }
+  if (!date)      { OZ.toast('Please enter a date');      return; }
+  if (qty < 1)    { OZ.toast('Quantity must be at least 1'); return; }
+  if (used + returned > qty) {
+    OZ.toast('Used + Returned cannot exceed quantity delivered'); return;
+  }
+
+  const { error } = await db.from('stock_deliveries').insert({
+    store_id:            storeId,
+    product_id:          productId,
+    booking_id:          bookingId,
+    delivery_date:       date,
+    quantity_delivered:  qty,
+    quantity_used:       used   || 0,
+    quantity_returned:   returned || 0,
+    notes:               notes || null,
+  });
+
+  if (error) { OZ.toast('❌ ' + error.message); return; }
+
+  OZ.toast('✅ Delivery recorded!');
+  window.stock_tab = 'history';
+  renderStock();
+}
+
+// ── Delete a delivery record ──────────────────────────────────
+async function deleteDelivery(id) {
+  if (!confirm('Delete this delivery record? This cannot be undone.')) return;
+  const { error } = await window.supabaseClient
+    .from('stock_deliveries').delete().eq('id', id);
+  if (error) { OZ.toast('❌ ' + error.message); return; }
+  OZ.toast('Record deleted');
+  renderStock();
+}
+
+// ── REPORTS ───────────────────────────────────────────────────
+// ── REPORTS — Supabase, marketplace-style cards with modal detail ──
+ 
+let _reportRows = []; // cached for modal lookup
+ 
+async function renderReports() {
+  const el = document.getElementById('page-reports');
+  const period    = window.period_reports || 'month';
+  const search    = document.getElementById('rp-search')?.value    || '';
+  const ratingF   = document.getElementById('rp-rating')?.value     || 'all';
+ 
+  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)">
+    <div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading reports…</div>`;
+ 
+  const db = window.supabaseClient;
+  let q = db.from('shift_reports').select(`
+    id, customer_responses, sales_observations, stock_issues, challenges, rating, submitted_at,
+    booking:booking_id(shift_date, shift_slot,
+      store:store_id(name, retailer, branch),
+      product:product_id(name, brand)
+    ),
+    promoter:promoter_id(id, first_name, last_name)
+  `).order('submitted_at', { ascending: false }).limit(500);
+ 
+  const [from, to] = OZ.getPeriodFilter ? OZ.getPeriodFilter(period) : [null, null];
+  if (from) q = q.gte('submitted_at', from);
+  if (to)   q = q.lte('submitted_at', to + 'T23:59:59');
+ 
+  const { data, error } = await q;
+  if (error) {
+    el.innerHTML = `<div class="card" style="color:var(--oz-red);padding:2rem">⚠ ${error.message}</div>`;
+    return;
+  }
+ 
+  let rows = data || [];
+ 
+  if (search) {
+    const s = search.toLowerCase();
+    rows = rows.filter(r => {
+      const name  = r.promoter ? `${r.promoter.first_name} ${r.promoter.last_name}` : '';
+      const store = r.booking?.store ? `${r.booking.store.name} ${r.booking.store.branch||''}` : '';
+      return (name + store).toLowerCase().includes(s);
+    });
+  }
+  if (ratingF !== 'all') rows = rows.filter(r => String(r.rating) === ratingF);
+ 
+  _reportRows = rows; // cache for modal
+ 
+  const ratingLabel = r => r >= 5 ? 'Excellent' : r >= 4 ? 'Good' : r >= 3 ? 'Average' : 'Below Average';
+  const ratingBadge = r => r >= 4 ? 'badge-green' : r >= 3 ? 'badge-cyan' : 'badge-amber';
+  const stars = r => '⭐'.repeat(r || 0) + '☆'.repeat(5 - (r || 0));
+ 
+  el.innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Feedback Reports</h1><p>Shift reports and performance insights</p></div></div>
+  <div class="filter-bar">
+    <input type="text" id="rp-search" placeholder="🔍 Search promoter or store…" value="${search}" oninput="renderReports()">
+    <select id="rp-rating" onchange="renderReports()">
+      <option value="all"${ratingF==='all'?' selected':''}>All Ratings</option>
+      <option value="5"${ratingF==='5'?' selected':''}>⭐⭐⭐⭐⭐ Excellent</option>
+      <option value="4"${ratingF==='4'?' selected':''}>⭐⭐⭐⭐ Good</option>
+      <option value="3"${ratingF==='3'?' selected':''}>⭐⭐⭐ Average</option>
+      <option value="2"${ratingF==='2'?' selected':''}>⭐⭐ Below Average</option>
+      <option value="1"${ratingF==='1'?' selected':''}>⭐ Poor</option>
+    </select>
+    ${OZ.periodTabsHtml('reports','renderReports()')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${rows.length} report${rows.length!==1?'s':''}</span>
+  </div>
+ 
+  ${!rows.length ? `
+  <div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">
+    <div style="font-size:2rem;margin-bottom:.75rem">📝</div>
+    <div style="font-weight:600">No reports for this period</div>
+  </div>` : `
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.9rem">
+    ${rows.map((r, i) => {
+      const name      = r.promoter ? `${r.promoter.first_name} ${r.promoter.last_name}` : '—';
+      const store     = r.booking?.store ? (r.booking.store.retailer ? `${r.booking.store.retailer} — ${r.booking.store.branch}` : r.booking.store.name) : '—';
+      const campaign  = r.booking?.product ? (r.booking.product.brand ? `${r.booking.product.brand} — ${r.booking.product.name}` : r.booking.product.name) : '—';
+      const dateStr   = r.booking?.shift_date ? new Date(r.booking.shift_date).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : (r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—');
+      const hasIssues = r.stock_issues || r.challenges;
+      return `
+      <div class="card" style="cursor:pointer;transition:transform .15s,border-color .15s;border-top:3px solid ${r.rating>=4?'var(--oz-green)':r.rating>=3?'var(--oz-accent)':'var(--oz-accent3)'}"
+           onmouseover="this.style.borderColor='var(--oz-accent)';this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.borderColor='var(--oz-border)';this.style.transform='translateY(0)'"
+           onclick="openReportDetailModal(${i})">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem">
+          <div>
+            <div style="font-weight:700;font-size:.86rem">${name}</div>
+            <div style="font-size:.74rem;color:var(--oz-muted);margin-top:1px">${store}</div>
+          </div>
+          <span class="badge ${ratingBadge(r.rating)}" style="flex-shrink:0">${ratingLabel(r.rating)}</span>
+        </div>
+        <div style="font-size:.7rem;color:var(--oz-accent);letter-spacing:.04em;margin-bottom:.45rem">${stars(r.rating)}</div>
+        <div style="font-size:.74rem;color:var(--oz-muted);margin-bottom:.5rem">📅 ${dateStr} &nbsp;·&nbsp; 🛍 ${campaign}</div>
+        <div style="font-size:.78rem;color:var(--oz-muted);line-height:1.5;max-height:3.2em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
+          ${r.customer_responses || 'No customer feedback recorded.'}
+        </div>
+        ${hasIssues ? `<div style="margin-top:.5rem"><span class="badge badge-amber" style="font-size:.62rem">⚠️ Issue reported</span></div>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`}`;
+}
+ 
+// Open modal with the full report detail
+function openReportDetailModal(index) {
+  const r = _reportRows[index];
+  if (!r) return;
+ 
+  const name     = r.promoter ? `${r.promoter.first_name} ${r.promoter.last_name}` : '—';
+  const store    = r.booking?.store ? (r.booking.store.retailer ? `${r.booking.store.retailer} — ${r.booking.store.branch}` : r.booking.store.name) : '—';
+  const campaign = r.booking?.product ? (r.booking.product.brand ? `${r.booking.product.brand} — ${r.booking.product.name}` : r.booking.product.name) : '—';
+  const dateStr  = r.booking?.shift_date ? new Date(r.booking.shift_date).toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
+  const ratingLabel = r.rating >= 5 ? 'Excellent' : r.rating >= 4 ? 'Good' : r.rating >= 3 ? 'Average' : 'Below Average';
+  const ratingBadge = r.rating >= 4 ? 'badge-green' : r.rating >= 3 ? 'badge-cyan' : 'badge-amber';
+  const stars = '⭐'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0));
+ 
+  let modal = document.getElementById('modal-report-detail');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'modal-report-detail';
+    modal.addEventListener('click', e => { if (e.target === modal) closeReportDetailModal(); });
+    document.body.appendChild(modal);
+  }
+ 
+  modal.innerHTML = `
+    <div class="modal" style="max-width:560px;max-height:85vh;overflow-y:auto">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+        <span>📝 ${name}</span>
+        <button class="btn btn-sm btn-ghost" onclick="closeReportDetailModal()">✕ Close</button>
+      </h2>
+ 
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div>
+          <div style="font-size:.85rem;font-weight:600">${store}</div>
+          <div style="font-size:.78rem;color:var(--oz-muted);margin-top:2px">📅 ${dateStr}${r.booking?.shift_slot ? ` &nbsp;·&nbsp; 🕐 ${r.booking.shift_slot}` : ''}</div>
+          <div style="font-size:.78rem;color:var(--oz-muted);margin-top:2px">🛍 ${campaign}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge ${ratingBadge}">${ratingLabel}</span>
+          <div style="font-size:.8rem;color:var(--oz-accent);margin-top:4px;letter-spacing:.04em">${stars}</div>
+        </div>
+      </div>
+ 
+      <div style="display:flex;flex-direction:column;gap:.85rem">
+        <div>
+          <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:4px">Customer Responses</div>
+          <div style="font-size:.84rem;color:var(--oz-text);line-height:1.6;background:var(--oz-surface2);border-radius:var(--r);padding:10px 12px">${r.customer_responses || '—'}</div>
+        </div>
+        ${r.sales_observations ? `
+        <div>
+          <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-dim);font-weight:600;margin-bottom:4px">Sales Observations</div>
+          <div style="font-size:.84rem;color:var(--oz-text);line-height:1.6;background:var(--oz-surface2);border-radius:var(--r);padding:10px 12px">${r.sales_observations}</div>
+        </div>` : ''}
+        ${r.stock_issues ? `
+        <div>
+          <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-accent3);font-weight:600;margin-bottom:4px">⚠️ Stock Issues</div>
+          <div style="font-size:.84rem;color:var(--oz-text);line-height:1.6;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.18);border-radius:var(--r);padding:10px 12px">${r.stock_issues}</div>
+        </div>` : ''}
+        ${r.challenges ? `
+        <div>
+          <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--oz-red);font-weight:600;margin-bottom:4px">⚠️ Challenges</div>
+          <div style="font-size:.84rem;color:var(--oz-text);line-height:1.6;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--r);padding:10px 12px">${r.challenges}</div>
+        </div>` : ''}
+      </div>
+ 
+      <div style="margin-top:1rem;font-size:.72rem;color:var(--oz-dim);text-align:right">
+        Submitted ${r.submitted_at ? new Date(r.submitted_at).toLocaleString('en-ZA') : '—'}
+      </div>
+    </div>`;
+ 
+  modal.classList.add('open');
+}
+ 
+function closeReportDetailModal() {
+  document.getElementById('modal-report-detail')?.classList.remove('open');
+}
+
+
+ 
+async function resolvePhotoUrls(photos) {
+  const db    = window.supabaseClient;
+  const paths = photos.map(p => p.storage_path).filter(Boolean);
+  if (!paths.length) return photos;
+  const { data: signed } = await db.storage
+    .from('shift-photos')
+    .createSignedUrls(paths, 86400);
+  const urlMap = {};
+  (signed || []).forEach(s => { if (s.signedUrl) urlMap[s.path] = s.signedUrl; });
+  return photos.map(p => ({ ...p, resolvedUrl: urlMap[p.storage_path] || null }));
+}
+
+
+
+// ── PHOTOS — Supabase, marketplace-style cards with modal gallery ──
+ 
+let _photoGroups = []; // cached promoter groups for modal lookup
+ 
+async function renderPhotos() {
+  const el = document.getElementById('page-photos');
+  const S  = window.SETTINGS;
   const period = window.period_photos || 'month';
   const search = document.getElementById('ph-search')?.value || '';
-  let data = OZ.filterByPeriod(window.ATTENDANCE, 'date', period);
-  if (search) data = data.filter(a=>a.promoter.toLowerCase().includes(search.toLowerCase()));
+ 
+  el.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--oz-muted)">
+    <div class="loading-spinner" style="margin:0 auto 1rem"></div>Loading photos…</div>`;
+ 
+  const db = window.supabaseClient;
+  let q = db.from('shift_photos').select(`
+    id, storage_path, file_name, store_name, campaign_name, shift_date, shift_slot, uploaded_at,
+    promoter:promoter_id(id, first_name, last_name)
+  `).order('uploaded_at', { ascending: false }).limit(1000);
+ 
+  const [from, to] = OZ.getPeriodFilter ? OZ.getPeriodFilter(period) : [null, null];
+  if (from) q = q.gte('shift_date', from);
+  if (to)   q = q.lte('shift_date', to);
+ 
+ const { data: raw, error } = await q;
+  if (error) {
+    el.innerHTML = `<div class="card" style="color:var(--oz-red);padding:2rem">⚠ ${error.message}</div>`;
+    return;
+  }
 
-  document.getElementById('page-photos').innerHTML = `
-  <div class="page-header"><div class="page-header-left"><h1>Interaction Photos</h1><p>Customer engagement evidence — min ${S.minPhotosPerShift} per shift</p></div></div>
+  // Resolve fresh signed URLs before grouping
+  const data = await resolvePhotoUrls(raw || []);
+
+  // Group photos by promoter
+  const groups = {};
+  (data || []).forEach(p => {
+    const pid  = p.promoter?.id || 'unknown';
+    const name = p.promoter ? `${p.promoter.first_name} ${p.promoter.last_name}` : 'Unknown promoter';
+    if (!groups[pid]) groups[pid] = { id: pid, name, photos: [] };
+    groups[pid].photos.push(p);
+  });
+ 
+  let promoters = Object.values(groups);
+  if (search) promoters = promoters.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
+ 
+  _photoGroups = promoters; // cache for modal access
+  const minPhotos = S.minPhotosPerShift || 10;
+ 
+  el.innerHTML = `
+  <div class="page-header"><div class="page-header-left"><h1>Interaction Photos</h1><p>Customer engagement evidence — min ${minPhotos} per shift</p></div></div>
   <div class="filter-bar">
     <input type="text" id="ph-search" placeholder="🔍 Search promoter…" value="${search}" oninput="renderPhotos()">
     ${OZ.periodTabsHtml('photos','renderPhotos()')}
+    <span style="font-size:.78rem;color:var(--oz-muted);margin-left:auto">${promoters.length} promoter${promoters.length!==1?'s':''} with photos</span>
   </div>
-  ${data.length ? data.map(a=>`<div class="card" style="margin-bottom:1rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-      <div><span style="font-weight:600">${a.promoter}</span><span style="color:var(--oz-muted);font-size:.82rem;margin-left:8px">${a.store} · ${a.date}</span></div>
-      <span class="badge ${a.photos>=S.minPhotosPerShift?'badge-green':'badge-amber'}">${a.photos} photos</span>
-    </div>
-    <div class="photo-grid">${Array.from({length:S.minPhotosPerShift},(_,i)=>`<div class="photo-thumb ${i<a.photos?'filled':''}">${i>=a.photos?'📷':''}</div>`).join('')}</div>
-    ${a.photos<S.minPhotosPerShift?`<div style="margin-top:.65rem;font-size:.78rem;color:var(--oz-red)">⚠️ ${S.minPhotosPerShift-a.photos} more photos needed</div>`:''}
-  </div>`).join('') : `<div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">No photo records for this period</div>`}`;
+ 
+  ${!promoters.length ? `
+  <div class="card" style="text-align:center;padding:3rem;color:var(--oz-dim)">
+    <div style="font-size:2rem;margin-bottom:.75rem">📷</div>
+    <div style="font-weight:600">No photo uploads for this period</div>
+  </div>` : `
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:.9rem">
+    ${promoters.map((g, i) => {
+      const cover     = g.photos[0];
+      const shifts    = groupPhotosByShift(g.photos);
+      const lastShift = shifts[0];
+      const ok        = lastShift && lastShift.photos.length >= minPhotos;
+      return `
+      <div class="card" style="padding:0;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s"
+           onmouseover="this.style.borderColor='var(--oz-accent)';this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.borderColor='var(--oz-border)';this.style.transform='translateY(0)'"
+           onclick="openPhotoGalleryModal(${i})">
+        <div style="aspect-ratio:1;background:var(--oz-surface2);background-image:url('${cover.resolvedUrl || ''}');background-size:cover;background-position:center;position:relative">
+          <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;font-size:.66rem;font-weight:600;padding:2px 7px;border-radius:20px;backdrop-filter:blur(4px)">
+            ${g.photos.length} 📷
+          </div>
+          ${shifts.length ? `<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.65));padding:18px 8px 6px"><span class="badge ${ok?'badge-green':'badge-amber'}" style="font-size:.6rem">${lastShift.photos.length}/${minPhotos}</span></div>` : ''}
+        </div>
+        <div style="padding:.6rem .7rem">
+          <div style="font-weight:600;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.name}</div>
+          <div style="font-size:.7rem;color:var(--oz-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lastShift ? (lastShift.storeName || '—') : '—'}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`}`;
+}
+ 
+// Helper — group a promoter's flat photo list into per-shift buckets
+function groupPhotosByShift(photos) {
+  const map = {};
+  photos.forEach(p => {
+    const key = `${p.store_name || '—'}_${p.shift_date || '—'}`;
+    if (!map[key]) {
+      map[key] = {
+        storeName:    p.store_name,
+        campaignName: p.campaign_name,
+        shiftDate:    p.shift_date,
+        photos:       [],
+      };
+    }
+    map[key].photos.push(p);
+  });
+  return Object.values(map).sort((a, b) => (b.shiftDate || '').localeCompare(a.shiftDate || ''));
+}
+ 
+// Open modal showing all of one promoter's photos, grouped by shift
+function openPhotoGalleryModal(groupIndex) {
+  const g = _photoGroups[groupIndex];
+  if (!g) return;
+  const S = window.SETTINGS;
+  const minPhotos = S.minPhotosPerShift || 10;
+  const shifts = groupPhotosByShift(g.photos);
+ 
+  // Build (or reuse) the modal element
+  let modal = document.getElementById('modal-photo-gallery');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'modal-photo-gallery';
+    modal.addEventListener('click', e => { if (e.target === modal) closePhotoGalleryModal(); });
+    document.body.appendChild(modal);
+  }
+ 
+  modal.innerHTML = `
+    <div class="modal" style="max-width:760px;max-height:85vh;overflow-y:auto">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">
+        <span>📷 ${g.name}</span>
+        <button class="btn btn-sm btn-ghost" onclick="closePhotoGalleryModal()">✕ Close</button>
+      </h2>
+      ${shifts.map(shift => `
+        <div style="margin-bottom:1.4rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;gap:.5rem">
+            <div>
+              <span style="font-weight:600">${shift.storeName || '—'}</span>
+              <span style="color:var(--oz-muted);font-size:.82rem;margin-left:8px">${shift.campaignName || ''} · ${shift.shiftDate || ''}</span>
+            </div>
+            <span class="badge ${shift.photos.length>=minPhotos?'badge-green':'badge-amber'}">${shift.photos.length}/${minPhotos} photos</span>
+          </div>
+          <div class="photo-grid">
+            ${shift.photos.map(p => `
+              <div class="photo-thumb filled" style="cursor:pointer;background-image:url('${p.resolvedUrl || ''}');background-size:cover;background-position:center"
+                   onclick="window.open('${p.resolvedUrl || ''}','_blank')" title="${p.file_name || ''}"></div>
+            `).join('')}
+            ${Array.from({ length: Math.max(0, minPhotos - shift.photos.length) }, () => `<div class="photo-thumb">📷</div>`).join('')}
+          </div>
+          ${shift.photos.length < minPhotos ? `<div style="margin-top:.6rem;font-size:.78rem;color:var(--oz-red)">⚠️ ${minPhotos - shift.photos.length} more photos needed</div>` : ''}
+        </div>
+      `).join('')}
+    </div>`;
+ 
+  modal.classList.add('open');
+}
+ 
+function closePhotoGalleryModal() {
+  document.getElementById('modal-photo-gallery')?.classList.remove('open');
 }
 
 // ── STORE QR CODES ────────────────────────────────────────────
@@ -1935,139 +2560,7 @@ async function downloadQRpdf(safeKey, storeName, dateStr, shift, campaign, token
 }
 
 // ── INVOICES ──────────────────────────────────────────────────
-function renderInvoices() {
-  const storeOptions = window.SETTINGS.stores.map(s =>
-    `<option value="${s.id}">${s.name}</option>`
-  ).join('');
 
-  document.getElementById('page-invoices').innerHTML = `
-  <div class="page-header">
-    <div class="page-header-left">
-      <h1>Store Invoices</h1>
-      <p>Create invoices for stores where we represent brands</p>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="form-row">
-      <div class="form-group">
-        <label>Brand / Product Being Promoted</label>
-        <input id="brandName" type="text" placeholder="e.g. Vodka Now" oninput="updateInvoicePreview()">
-      </div>
-      <div class="form-group">
-        <label>Store</label>
-        <select id="storeSelect" onchange="onInvoiceStoreChange()">
-          <option value="">— Select a store —</option>
-          ${storeOptions}
-        </select>
-      </div>
-    </div>
-
-    <!-- Store contact info auto-fill -->
-    <div id="store-info-box" style="display:none;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);border-radius:var(--r);padding:12px 16px;margin-bottom:1rem;font-size:.82rem;color:var(--oz-muted);line-height:1.8">
-      <div id="store-info-content"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label>Invoice Date</label>
-        <input id="invoiceDate" type="date" oninput="updateInvoicePreview()">
-      </div>
-      <div class="form-group">
-        <label>Units Sold / Sampled</label>
-        <input id="unitsSold" type="number" value="0" oninput="calculateInvoice()">
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label>Price Per Unit (R)</label>
-        <input id="unitPrice" type="number" value="0" oninput="calculateInvoice()">
-      </div>
-      <div class="form-group">
-        <label>VAT (%)</label>
-        <input id="vatRate" type="number" value="15" oninput="calculateInvoice()">
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:15px;text-align:center">
-      <div style="font-size:.78rem;color:var(--oz-muted);margin-bottom:4px">Total Invoice Amount</div>
-      <div style="font-size:2rem;font-weight:bold;color:var(--oz-accent)">R<span id="invoiceTotal">0.00</span></div>
-      <div style="font-size:.78rem;color:var(--oz-muted);margin-top:4px">Excl. VAT: R<span id="invoiceSubtotal">0.00</span> · VAT: R<span id="invoiceVat">0.00</span></div>
-    </div>
-  </div>
-
-  <div style="height:20px"></div>
-
-  <div class="card">
-    <div class="card-title">📄 Invoice Preview</div>
-    <table>
-      <tr><td><b>Brand Promoted</b></td><td id="prevBrand">—</td></tr>
-      <tr><td><b>Store</b></td><td id="prevStore">—</td></tr>
-      <tr><td><b>Store Address</b></td><td id="prevAddress">—</td></tr>
-      <tr><td><b>Store Email</b></td><td id="prevEmail">—</td></tr>
-      <tr><td><b>Store Phone</b></td><td id="prevPhone">—</td></tr>
-      <tr><td><b>Invoice Date</b></td><td id="prevDate">—</td></tr>
-      <tr><td><b>Units</b></td><td id="prevUnits">—</td></tr>
-      <tr><td><b>Subtotal</b></td><td id="prevSubtotal">—</td></tr>
-      <tr><td><b>VAT</b></td><td id="prevVat">—</td></tr>
-      <tr><td><b>Total</b></td><td id="prevTotal" style="font-weight:700;color:var(--oz-accent)">—</td></tr>
-    </table>
-    <div style="margin-top:1rem;display:flex;gap:8px">
-      <button class="btn btn-accent" onclick="OZ.toast('🖨 Printing invoice…')">🖨 Print Invoice</button>
-      <button class="btn btn-outline" onclick="OZ.toast('📧 Invoice emailed to store')">📧 Email to Store</button>
-    </div>
-  </div>`;
-
-  // Set today's date as default
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('invoiceDate').value = today;
-  updateInvoicePreview();
-}
-
-function onInvoiceStoreChange() {
-  const sel = document.getElementById('storeSelect');
-  const store = window.SETTINGS.stores.find(s => s.id === sel.value);
-  const box = document.getElementById('store-info-box');
-  const content = document.getElementById('store-info-content');
-  if (store) {
-    box.style.display = 'block';
-    content.innerHTML = `<strong>${store.name}</strong><br>📍 ${store.address}, ${store.town}, ${store.province}<br>📧 ${store.email || '—'} &nbsp;|&nbsp; 📞 ${store.phone || '—'}`;
-  } else {
-    box.style.display = 'none';
-  }
-  calculateInvoice();
-}
-
-function calculateInvoice() {
-  const units    = Number(document.getElementById('unitsSold')?.value || 0);
-  const price    = Number(document.getElementById('unitPrice')?.value || 0);
-  const vatPct   = Number(document.getElementById('vatRate')?.value || 0);
-  const subtotal = units * price;
-  const vatAmt   = subtotal * (vatPct / 100);
-  const total    = subtotal + vatAmt;
-
-  const fmt = v => v.toFixed(2);
-  document.getElementById('invoiceTotal').textContent    = fmt(total);
-  document.getElementById('invoiceSubtotal').textContent = fmt(subtotal);
-  document.getElementById('invoiceVat').textContent      = fmt(vatAmt);
-
-  // Update preview
-  const sel   = document.getElementById('storeSelect');
-  const store = window.SETTINGS.stores.find(s => s.id === sel?.value);
-  document.getElementById('prevBrand').textContent    = document.getElementById('brandName')?.value || '—';
-  document.getElementById('prevStore').textContent    = store?.name || '—';
-  document.getElementById('prevAddress').textContent  = store ? `${store.address}, ${store.town}, ${store.province}` : '—';
-  document.getElementById('prevEmail').textContent    = store?.email || '—';
-  document.getElementById('prevPhone').textContent    = store?.phone || '—';
-  document.getElementById('prevDate').textContent     = document.getElementById('invoiceDate')?.value || '—';
-  document.getElementById('prevUnits').textContent    = units ? `${units} units @ R${price}` : '—';
-  document.getElementById('prevSubtotal').textContent = `R${fmt(subtotal)}`;
-  document.getElementById('prevVat').textContent      = `R${fmt(vatAmt)} (${vatPct}%)`;
-  document.getElementById('prevTotal').textContent    = `R${fmt(total)}`;
-}
-
-function updateInvoicePreview() { calculateInvoice(); }
 
 
 
@@ -2785,56 +3278,39 @@ async function savePaySettings() {
 }
 
 async function saveShiftSettings() {
-  const minPhotos = Number(document.getElementById('st-minphotos')?.value || 10);
   const db = window.supabaseClient;
+
+  const minPhotos  = Number(document.getElementById('st-minphotos')?.value) || 10;
+  const lateThresh = Number(document.getElementById('st-latein')?.value)    || 30;
+  const gpsRadius  = Number(document.getElementById('st-gpsrad')?.value)    || 200;
+  const feedback   = document.getElementById('st-feedback')?.checked  ?? true;
+  const earnings   = document.getElementById('st-earnings')?.checked  ?? true;
+  const gps        = document.getElementById('st-gps')?.checked       ?? true;
+
   const { error } = await db
     .from('system_settings')
     .update({
-      min_photos_per_shift: minPhotos,
-      updated_by:           window.OZ_USER?.id || null,
+      min_photos_per_shift:              minPhotos,
+      late_checkin_threshold_mins:       lateThresh,
+      checkin_radius_meters:             gpsRadius,
+      require_feedback_before_checkout:  feedback,
+      show_earnings_to_promoter:         earnings,
+      enable_gps_verification:           gps,
+      updated_by: window.OZ_USER?.id || null,
     })
     .eq('id', 1);
 
   if (error) { OZ.toast('❌ Save failed: ' + error.message); return; }
 
-  window.SETTINGS.minPhotosPerShift           = minPhotos;
-  window.SETTINGS.lateCheckinThresholdMins    = Number(document.getElementById('st-latein')?.value  || 30);
-  window.SETTINGS.checkinRadiusMeters         = Number(document.getElementById('st-gpsrad')?.value  || 200);
-  window.SETTINGS.requireFeedbackBeforeCheckout = document.getElementById('st-feedback')?.checked ?? true;
-  window.SETTINGS.showEarningsToPromoter      = document.getElementById('st-earnings')?.checked ?? true;
-  window.SETTINGS.enableGPSVerification       = document.getElementById('st-gps')?.checked ?? true;
+  // Keep local SETTINGS in sync too
+  window.SETTINGS.minPhotosPerShift             = minPhotos;
+  window.SETTINGS.lateCheckinThresholdMins      = lateThresh;
+  window.SETTINGS.checkinRadiusMeters           = gpsRadius;
+  window.SETTINGS.requireFeedbackBeforeCheckout = feedback;
+  window.SETTINGS.showEarningsToPromoter        = earnings;
+  window.SETTINGS.enableGPSVerification         = gps;
 
-  OZ.toast('✅ Shift rules saved!');
-}
-
-async function saveNewStore() {
-  const name     = document.getElementById('ns-name').value.trim();
-  const retailer = document.getElementById('ns-retailer').value.trim();
-  const branch   = document.getElementById('ns-branch').value.trim();
-  const address  = document.getElementById('ns-address').value.trim();
-  const province = document.getElementById('ns-province').value;
-  if (!name || !retailer || !province) { OZ.toast('Store name, retailer and province are required'); return; }
-
-  const db = window.supabaseClient;
-  const { error } = await db
-    .from('stores')
-    .insert({
-      name,
-      retailer,
-      branch:   branch || retailer,
-      region:   province,
-      address:  address || null,
-      status:   'active',
-    });
-
-  if (error) { OZ.toast('❌ Save failed: ' + error.message); return; }
-
-  ['ns-name','ns-retailer','ns-branch','ns-email','ns-phone','ns-town','ns-address'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  OZ.closeModal('modal-add-store');
-  OZ.toast('✅ Store added: ' + name);
-  renderSettings();
+  OZ.toast('✅ Shift rules saved to database!');
 }
 
 async function removeStore(id, name) {
