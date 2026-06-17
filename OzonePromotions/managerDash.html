@@ -3348,18 +3348,26 @@ async function approveApp(appId, firstName, lastName, email, phone, idNumber, re
 
   try {
     // 1. Create Supabase Auth user with a random throwaway password
-    //    The promoter will never use this — they'll set their own via the email link
-    const throwawayPassword = 'Tmp_' + Math.random().toString(36).slice(2, 10) + '_Oz9!';
+   // 1. Create Supabase Auth user with a random throwaway password
+const throwawayPassword = 'Tmp_' + Math.random().toString(36).slice(2, 10) + '_Oz9!';
 
-    const { data: signUpData, error: signUpErr } = await db.auth.signUp({
-      email,
-      password: throwawayPassword,
-      options: { data: { first_name: firstName, last_name: lastName } }
-    });
-    if (signUpErr) throw new Error('Auth creation failed: ' + signUpErr.message);
+const { data: signUpData, error: signUpErr } = await db.auth.signUp({
+  email,
+  password: throwawayPassword,
+  options: { data: { first_name: firstName, last_name: lastName } }
+});
 
-    const authUserId = signUpData?.user?.id;
-    if (!authUserId) throw new Error('Could not get auth user ID — the email may already have an account.');
+let authUserId = signUpData?.user?.id;
+
+if (signUpErr) {
+  if (signUpErr.message.toLowerCase().includes('already registered')) {
+    // Auth user already exists from a previous attempt — that's fine, continue.
+    // We'll link the existing public.users row to it via the email match below.
+    authUserId = null; // signal to skip auth_id update in step 2
+  } else {
+    throw new Error('Auth creation failed: ' + signUpErr.message);
+  }
+}
 
     // 2. Check if a public.users row already exists
     const { data: existingUser } = await db.from('users').select('id').eq('email', email).maybeSingle();
@@ -3420,11 +3428,20 @@ async function approveApp(appId, firstName, lastName, email, phone, idNumber, re
     });
 
     if (resetErr) {
-      console.warn('Password reset email warning:', resetErr.message);
-      OZ.toast(`✅ ${firstName} approved! Account created — but email failed. Share login details manually.`);
-    } else {
-      OZ.toast(`✅ ${firstName} ${lastName} approved! Password setup email sent to ${email}.`);
-    }
+  console.warn('Password reset email warning:', resetErr.message);
+}
+
+// Always show the manager the credentials directly as a fallback,
+// since email delivery cannot be guaranteed without custom SMTP configured.
+alert(
+  `✅ ${firstName} ${lastName} approved!\n\n` +
+  `Share these login details with them directly:\n\n` +
+  `Email: ${email}\n` +
+  `Temporary Password: ${throwawayPassword}\n\n` +
+  `They should log in and can change their password from their profile.\n` +
+  (resetErr ? '\n(Password reset email failed to send — use the temporary password above.)' :
+              '\n(A password reset email was also sent in case they prefer to set their own.)')
+);
 
     await buildNav();
     renderApplications();
